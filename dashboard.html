@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>営業進捗ダッシュボード</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+
+/* ---- Header ---- */
+.header{background:linear-gradient(135deg,#1a1d2e,#16213e);border-bottom:1px solid #2d3561;padding:18px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.header-title{font-size:20px;font-weight:700;background:linear-gradient(90deg,#6c8dfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-right{display:flex;align-items:center;gap:16px}
+.header-date{font-size:12px;color:#64748b}
+
+/* ---- Top nav ---- */
+.top-nav{background:#1a1d2e;border-bottom:1px solid #2d3561;display:flex;padding:0 32px;gap:2px;overflow-x:auto}
+.top-tab{padding:14px 22px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#64748b;border-bottom:3px solid transparent;transition:.2s;white-space:nowrap}
+.top-tab:hover{color:#a78bfa}
+.top-tab.active{color:#a78bfa;border-bottom-color:#a78bfa}
+
+/* ---- Pages ---- */
+.page{display:none}.page.active{display:block}
+.main{padding:24px 32px;max-width:1400px;margin:0 auto}
+
+/* ---- Section title ---- */
+.section-title{font-size:15px;font-weight:700;color:#a78bfa;margin:24px 0 14px;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';width:4px;height:18px;background:#a78bfa;border-radius:2px;display:inline-block}
+
+/* ---- Cards ---- */
+.cards-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px}
+.card{background:#1e2235;border:1px solid #2d3561;border-radius:12px;padding:18px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#6c8dfa,#a78bfa)}
+.card-label{font-size:11px;color:#64748b;margin-bottom:6px;font-weight:500}
+.card-value{font-size:26px;font-weight:700}
+.card-sub{font-size:11px;margin-top:4px}
+.green{color:#34d399}.red{color:#f87171}.yellow{color:#fbbf24}.blue{color:#6c8dfa}.gray{color:#64748b}
+
+/* ---- Badge ---- */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700;min-width:52px;text-align:center}
+.badge.green{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.badge.red{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+.badge.yellow{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+.badge.gray{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+.badge.blue{background:rgba(108,141,250,.15);color:#6c8dfa;border:1px solid rgba(108,141,250,.3)}
+
+/* ---- Progress ---- */
+.pb-bg{height:5px;background:#2d3561;border-radius:3px;overflow:hidden;margin-top:4px}
+.pb-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.fill-green{background:linear-gradient(90deg,#34d399,#10b981)}
+.fill-red{background:linear-gradient(90deg,#f87171,#ef4444)}
+.fill-yellow{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+
+/* ---- Table ---- */
+.table-wrap{overflow-x:auto;margin-bottom:24px}
+table{width:100%;border-collapse:collapse;font-size:12px;background:#1e2235;border-radius:12px;overflow:hidden;border:1px solid #2d3561}
+thead tr{background:#16213e}
+th{padding:10px 14px;text-align:center;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:10px 14px;border-top:1px solid #2d3561;text-align:center;vertical-align:middle;font-size:12px}
+td:first-child{text-align:left;font-weight:600;color:#e2e8f0}
+tr:hover td{background:rgba(108,141,250,.04)}
+
+/* ---- Alert / Next action ---- */
+.alert-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px}
+.alert-card{border-radius:10px;padding:14px;border-left:4px solid}
+.alert-card.warn{background:rgba(251,191,36,.07);border-color:#fbbf24}
+.alert-card.danger{background:rgba(248,113,113,.07);border-color:#f87171}
+.alert-card.info{background:rgba(108,141,250,.07);border-color:#6c8dfa}
+.alert-title{font-size:12px;font-weight:700;margin-bottom:5px}
+.alert-text{font-size:12px;color:#94a3b8;line-height:1.6}
+.next-action{background:linear-gradient(135deg,#1a2744,#1e2235);border:1px solid #3d5296;border-radius:12px;padding:18px;margin-bottom:24px}
+.next-action-title{font-size:12px;font-weight:700;color:#6c8dfa;margin-bottom:8px}
+.next-action ul{list-style:none}
+.next-action li{font-size:12px;color:#94a3b8;padding:4px 0 4px 16px;position:relative;line-height:1.5}
+.next-action li::before{content:'→';position:absolute;left:0;color:#6c8dfa}
+
+/* ---- Member card ---- */
+.members-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:24px}
+.member-card{background:#1e2235;border:1px solid #2d3561;border-radius:12px;padding:18px;transition:.2s}
+.member-card:hover{transform:translateY(-2px);border-color:#4a5568}
+.member-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#6c8dfa,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0}
+.member-name{font-size:15px;font-weight:700;color:#e2e8f0}
+.member-role{font-size:11px;color:#64748b;margin-top:2px}
+.kpi-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #2d3561}
+.kpi-row:last-child{border-bottom:none}
+.kpi-label{font-size:11px;color:#94a3b8;flex:1}
+.kpi-nums{font-size:11px;color:#64748b;margin:0 10px;white-space:nowrap}
+
+/* ---- Input Form ---- */
+.input-page{background:#1e2235;border:1px solid #2d3561;border-radius:14px;padding:28px;max-width:700px;margin:0 auto}
+.form-title{font-size:17px;font-weight:700;color:#e2e8f0;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-group.full{grid-column:1/-1}
+label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px}
+select,input[type=text],input[type=number],input[type=date],textarea{background:#16213e;border:1px solid #2d3561;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:13px;width:100%;transition:.2s;font-family:inherit}
+select:focus,input:focus,textarea:focus{outline:none;border-color:#6c8dfa;background:#1a2744}
+textarea{resize:vertical;min-height:72px}
+.btn{padding:11px 24px;border-radius:8px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:.2s}
+.btn-primary{background:linear-gradient(135deg,#6c8dfa,#a78bfa);color:#fff}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
+.btn-secondary{background:#2d3561;color:#94a3b8}
+.btn-secondary:hover{background:#3d4571;color:#e2e8f0}
+.btn-danger{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+.btn-danger:hover{background:rgba(248,113,113,.25)}
+.form-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.success-msg{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+
+/* ---- Aggregate tabs ---- */
+.agg-tabs{display:flex;gap:6px;margin-bottom:18px}
+.agg-tab{padding:7px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2d3561;background:transparent;color:#64748b;transition:.2s}
+.agg-tab.active{background:#6c8dfa;color:#fff;border-color:#6c8dfa}
+.agg-tab:hover:not(.active){border-color:#6c8dfa;color:#6c8dfa}
+
+/* ---- Log table ---- */
+.log-table td{font-size:11px}
+.log-empty{text-align:center;color:#4a5568;padding:40px;font-size:14px}
+.delete-btn{background:none;border:none;color:#f87171;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px}
+.delete-btn:hover{background:rgba(248,113,113,.15)}
+
+/* ---- Responsive ---- */
+@media(max-width:768px){
+  .main{padding:16px}
+  .top-nav{padding:0 16px}
+  .header{padding:14px 16px}
+  .top-tab{padding:10px 12px;font-size:12px}
+  .form-grid{grid-template-columns:1fr}
+  .form-group.full{grid-column:1}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">📊 営業進捗ダッシュボード</div>
+  <div class="header-right">
+    <div class="header-date" id="today-date"></div>
+  </div>
+</div>
+
+<div class="top-nav">
+  <button class="top-tab active" onclick="switchPage('input')">✏️ 日次入力</button>
+  <button class="top-tab" onclick="switchPage('agg')">📈 集計・分析</button>
+  <button class="top-tab" onclick="switchPage('solution')">💼 ソリューション</button>
+  <button class="top-tab" onclick="switchPage('cs')">🤝 カスタマーサクセス</button>
+  <button class="top-tab" onclick="switchPage('tele')">📞 テレマーケティング</button>
+</div>
+
+<!-- ===================== 日次入力 ===================== -->
+<div id="page-input" class="page active">
+<div class="main">
+  <div class="input-page">
+    <div class="form-title">✏️ デイリー進捗を入力する</div>
+    <form id="entry-form">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>日付</label>
+          <input type="date" id="f-date" required>
+        </div>
+        <div class="form-group">
+          <label>チーム</label>
+          <select id="f-team" onchange="updateMembers()" required>
+            <option value="">選択してください</option>
+            <option value="ソリューション">ソリューション</option>
+            <option value="カスタマーサクセス">カスタマーサクセス</option>
+            <option value="テレマーケティング">テレマーケティング</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>メンバー名</label>
+          <select id="f-member" required>
+            <option value="">チームを選んでください</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>KPI項目</label>
+          <select id="f-kpi" required>
+            <option value="">チームを選んでください</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>目標値</label>
+          <input type="number" id="f-target" placeholder="例: 10" min="0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>実績値</label>
+          <input type="number" id="f-actual" placeholder="例: 8" min="0" step="0.1" required>
+        </div>
+        <div class="form-group full">
+          <label>ネクストアクション / 備考</label>
+          <textarea id="f-note" placeholder="今日の気づき・明日やること・ボトルネックなど自由に記入"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">リセット</button>
+        <button type="submit" class="btn btn-primary">💾 保存する</button>
+      </div>
+      <div class="success-msg" id="success-msg">✅ 保存しました！</div>
+    </form>
+  </div>
+</div>
+</div>
+
+<!-- ===================== 集計・分析 ===================== -->
+<div id="page-agg" class="page">
+<div class="main">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+    <div class="agg-tabs">
+      <button class="agg-tab active" onclick="switchAgg('daily')">日次</button>
+      <button class="agg-tab" onclick="switchAgg('weekly')">週次</button>
+      <button class="agg-tab" onclick="switchAgg('monthly')">月次</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="agg-team" onchange="renderAgg()" style="background:#1e2235;border:1px solid #2d3561;border-radius:8px;padding:7px 12px;color:#e2e8f0;font-size:12px">
+        <option value="">全チーム</option>
+        <option value="ソリューション">ソリューション</option>
+        <option value="カスタマーサクセス">カスタマーサクセス</option>
+        <option value="テレマーケティング">テレマーケティング</option>
+      </select>
+      <select id="agg-member" onchange="renderAgg()" style="background:#1e2235;border:1px solid #2d3561;border-radius:8px;padding:7px 12px;color:#e2e8f0;font-size:12px">
+        <option value="">全メンバー</option>
+      </select>
+      <button class="btn btn-danger" onclick="clearAllData()" style="font-size:11px;padding:7px 14px">🗑 全削除</button>
+    </div>
+  </div>
+
+  <div id="agg-summary" class="cards-row"></div>
+
+  <div class="section-title" id="agg-table-title">集計データ</div>
+  <div class="table-wrap">
+    <table id="agg-table">
+      <thead id="agg-thead"></thead>
+      <tbody id="agg-tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">入力済みログ一覧</div>
+  <div class="table-wrap">
+    <table class="log-table">
+      <thead>
+        <tr>
+          <th>日付</th><th>チーム</th><th>メンバー</th><th>KPI項目</th>
+          <th>目標</th><th>実績</th><th>達成率</th><th>備考</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="log-tbody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ===================== ソリューション ===================== -->
+<div id="page-solution" class="page">
+<div class="main">
+  <div class="cards-row">
+    <div class="card"><div class="card-label">チャーン率達成率</div><div class="card-value green">138%</div><div class="card-sub green">✓ 目標超過（40→55件）</div></div>
+    <div class="card"><div class="card-label">新規獲得（年500万以上）</div><div class="card-value red">0%</div><div class="card-sub red">✗ 目標4社→実績0社</div></div>
+    <div class="card"><div class="card-label">費消額最大化KPI</div><div class="card-value gray">集計中</div><div class="card-sub yellow">△ 数値定義整理中</div></div>
+    <div class="card"><div class="card-label">ミックスグリル提案</div><div class="card-value yellow">↑増加</div><div class="card-sub yellow">△ 再現性確認が必要</div></div>
+  </div>
+  <div class="section-title">メンバー別 週次実績</div>
+  <div class="members-grid">
+    <div class="member-card">
+      <div class="member-header"><div class="avatar">下</div><div><div class="member-name">下川さん</div><div class="member-role">ソリューション</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">複数プラン提案数（社単UP）</div><div class="kpi-nums">60→85</div><span class="badge green">142%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-green" style="width:100%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレゼン金額（バジェットUP）</div><div class="kpi-nums">196→310万</div><span class="badge green">158%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-green" style="width:100%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">他媒体提案数（ミックス）</div><div class="kpi-nums">4→3件</div><span class="badge yellow">75%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:75%"></div></div>
+    </div>
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#f87171,#ec4899)">寒</div><div><div class="member-name">寒川さん</div><div class="member-role">ソリューション</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">複数プラン提案数（社単UP）</div><div class="kpi-nums">60→47</div><span class="badge red">78%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:78%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレゼン金額（バジェットUP）</div><div class="kpi-nums">196→80万</div><span class="badge red">41%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:41%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">他媒体提案数（ミックス）</div><div class="kpi-nums">4→5件</div><span class="badge green">125%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-green" style="width:100%"></div></div>
+    </div>
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#34d399,#059669)">堀</div><div><div class="member-name">堀江さん</div><div class="member-role">ソリューション</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">複数プラン提案数（社単UP）</div><div class="kpi-nums">60→59</div><span class="badge yellow">98%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:98%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレゼン金額（バジェットUP）</div><div class="kpi-nums">196→185万</div><span class="badge yellow">94%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:94%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">他媒体提案数（ミックス）</div><div class="kpi-nums">4→3件</div><span class="badge yellow">75%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:75%"></div></div>
+    </div>
+  </div>
+  <div class="section-title">課題・ボトルネック</div>
+  <div class="alert-grid">
+    <div class="alert-card danger"><div class="alert-title">🔴 新規受注KGI 未達</div><div class="alert-text">年間500万以上顧客×6社目標に対して実績0社。プレス数増加の再現性確認が急務。</div></div>
+    <div class="alert-card warn"><div class="alert-title">⚠️ 数値定義の不統一</div><div class="alert-text">提案数・受注数・プレス数の定義があいまいで集計にズレ。定義書の作成が必要。</div></div>
+    <div class="alert-card info"><div class="alert-title">💡 ミックスグリル提案は増加傾向</div><div class="alert-text">提案数自体は増加中。成功パターンをチームで共有し再現性を高める。</div></div>
+  </div>
+  <div class="next-action">
+    <div class="next-action-title">📌 ネクストアクション</div>
+    <ul>
+      <li>提案数・受注数・プレス数の定義を統一し、チーム共通のKPI定義書を作成する</li>
+      <li>寒川さんのプレゼン金額（バジェットUP）が大幅未達のため個別フォロー実施</li>
+      <li>新規プレスや提案実績を正しく集計し、提案数増加の再現性をチームで認識する</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<!-- ===================== カスタマーサクセス ===================== -->
+<div id="page-cs" class="page">
+<div class="main">
+  <div class="cards-row">
+    <div class="card"><div class="card-label">CS月間費消目標（6月）</div><div class="card-value yellow">9.15%</div><div class="card-sub red">2,178,117円 / 23,800,000円</div></div>
+    <div class="card"><div class="card-label">Q費消進捗率</div><div class="card-value yellow">66.0%</div><div class="card-sub yellow">47,320,432円 / 71,700,000円</div></div>
+    <div class="card"><div class="card-label">現S有効接触（8W）</div><div class="card-value green">102%</div><div class="card-sub green">✓ 目標45→実績46件</div></div>
+    <div class="card"><div class="card-label">落ちS接触（8W）</div><div class="card-value green">101%</div><div class="card-sub green">✓ 目標100→実績101件</div></div>
+  </div>
+  <div class="section-title">メンバー別 個人実績（8W: 6/1〜6/5）</div>
+  <div class="members-grid">
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#6c8dfa,#a78bfa)">吉</div><div><div class="member-name">吉岡さん（たま）</div><div class="member-role">カスタマーサクセス</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">目標獲得社数</div><div class="kpi-nums">目標12</div><span class="badge yellow">6社 / 50%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:50%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレ数</div><div class="kpi-nums">目標12</div><span class="badge red">0件 / 0%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:0%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">有効接触</div><div class="kpi-nums">—</div><span class="badge gray">2件</span></div>
+    </div>
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706)">ゾ</div><div><div class="member-name">ゾンハンさん</div><div class="member-role">カスタマーサクセス</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">目標獲得社数</div><div class="kpi-nums">目標12</div><span class="badge red">3社 / 25%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:25%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレ数</div><div class="kpi-nums">目標15</div><span class="badge red">6件 / 40%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:40%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">有効接触</div><div class="kpi-nums">—</div><span class="badge gray">—</span></div>
+    </div>
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#34d399,#059669)">畠</div><div><div class="member-name">畠山さん</div><div class="member-role">カスタマーサクセス</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">目標獲得社数</div><div class="kpi-nums">目標12〜13</div><span class="badge yellow">集計中</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-yellow" style="width:50%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">テレマパス受入</div><div class="kpi-nums">複数件</div><span class="badge green">対応中</span></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">有効接触</div><div class="kpi-nums">—</div><span class="badge gray">集計中</span></div>
+    </div>
+    <div class="member-card">
+      <div class="member-header"><div class="avatar" style="background:linear-gradient(135deg,#ec4899,#be185d)">な</div><div><div class="member-name">ななさん</div><div class="member-role">カスタマーサクセス</div></div></div>
+      <div class="kpi-row"><div class="kpi-label">目標獲得社数</div><div class="kpi-nums">目標12</div><span class="badge red">2社 / 17%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:17%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">プレ数</div><div class="kpi-nums">目標20</div><span class="badge red">4件 / 20%</span></div>
+      <div class="pb-bg"><div class="pb-fill fill-red" style="width:20%"></div></div>
+      <div class="kpi-row" style="margin-top:8px"><div class="kpi-label">有効接触</div><div class="kpi-nums">—</div><span class="badge gray">16件</span></div>
+    </div>
+  </div>
+  <div class="section-title">週次チーム推移</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>指標</th><th>5W（GW明け）</th><th>6W</th><th>7W</th><th>8W（6/1〜6/5）</th><th>9W</th></tr></thead>
+      <tbody>
+        <tr><td>現S有効接触</td><td><span class="badge green">112%</span><br><small class="gray">42→47</small></td><td><span class="badge green">106%</span><br><small class="gray">48→51</small></td><td><span class="badge green">114%</span><br><small class="gray">36→41</small></td><td><span class="badge green">102%</span><br><small class="gray">45→46</small></td><td><span class="badge green">109%</span><br><small class="gray">44→48</small></td></tr>
+        <tr><td>現Sヒアリング</td><td><span class="badge green">107%</span><br><small class="gray">42→45</small></td><td><span class="badge gray">—</span></td><td><span class="badge yellow">75%</span><br><small class="gray">48→36</small></td><td><span class="badge green">100%</span><br><small class="gray">40→40</small></td><td><span class="badge yellow">98%</span><br><small class="gray">41→40</small></td></tr>
+        <tr><td>落ちS接触</td><td><span class="badge red">20%</span><br><small class="gray">30→6</small></td><td><span class="badge red">60%</span><br><small class="gray">65→39</small></td><td><span class="badge yellow">77%</span><br><small class="gray">81→62</small></td><td><span class="badge green">101%</span><br><small class="gray">100→101</small></td><td><span class="badge green">101%</span><br><small class="gray">75→76</small></td></tr>
+        <tr><td>新規（プレ数）</td><td><span class="badge gray">—</span></td><td><span class="badge red">33%</span><br><small class="gray">3→1</small></td><td><span class="badge gray">—</span></td><td><span class="badge red">33%</span><br><small class="gray">3→1</small></td><td><span class="badge red">0%</span><br><small class="gray">7→0</small></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="section-title">課題・ボトルネック</div>
+  <div class="alert-grid">
+    <div class="alert-card danger"><div class="alert-title">🔴 新規受注 KGI 未達（0件）</div><div class="alert-text">KPI 63%達成にもかかわらずKGIは0。商談化・受注への変換が課題。</div></div>
+    <div class="alert-card warn"><div class="alert-title">⚠️ 落ちS接触が計画倒れ（5W・6W）</div><div class="alert-text">5Wは目標30件→実績6件（20%）。習慣化・計画立案が必要。8W以降は改善傾向。</div></div>
+    <div class="alert-card info"><div class="alert-title">✅ 有効接触は安定して100%超え</div><div class="alert-text">チーム全体の有効接触が初めて100%超え。接触数を維持しつつ商談化率の向上が次の焦点。</div></div>
+  </div>
+  <div class="next-action">
+    <div class="next-action-title">📌 ネクストアクション</div>
+    <ul>
+      <li>商談終了時・架電時に「次回日時・送付物・確認事項」まで具体化してネクストアクションを設定する</li>
+      <li>接触サイクルを短縮し、電話・メール等でアクション量を増やす</li>
+      <li>新規12社（KPI目標6→実績2, 50%）のプレス数を増やすための提案活動を強化</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<!-- ===================== テレマーケティング ===================== -->
+<div id="page-tele" class="page">
+<div class="main">
+  <div class="cards-row">
+    <div class="card"><div class="card-label">有効接触率目標</div><div class="card-value">10%</div><div class="card-sub yellow">△ KPI設定中</div></div>
+    <div class="card"><div class="card-label">連携率目標</div><div class="card-value">6%</div><div class="card-sub yellow">△ 品質改善が必要</div></div>
+    <div class="card"><div class="card-label">パス後受注（5月）</div><div class="card-value red">20%</div><div class="card-sub red">目標10件→実績2件</div></div>
+    <div class="card"><div class="card-label">来月パス目標</div><div class="card-value blue">55件</div><div class="card-sub yellow">警備＋物流・介護福祉</div></div>
+  </div>
+  <div class="section-title">月次進捗サマリー</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>月・週</th><th>有効接触 目標</th><th>有効接触 実績</th><th>達成率</th><th>ニーズありパス 目標</th><th>ニーズありパス 実績</th><th>達成率</th><th>パス後受注 目標</th><th>パス後受注 実績</th><th>達成率</th></tr></thead>
+      <tbody>
+        <tr><td>4月合計</td><td>300</td><td>514</td><td><span class="badge green">171%</span></td><td>30</td><td>17</td><td><span class="badge red">57%</span></td><td>10</td><td>2</td><td><span class="badge red">20%</span></td></tr>
+        <tr><td>5月合計</td><td>300</td><td>11<br><small style="color:#fbbf24">※集計ミス疑い</small></td><td><span class="badge red">4%</span></td><td>30</td><td>21</td><td><span class="badge yellow">70%</span></td><td>10</td><td>2</td><td><span class="badge red">20%</span></td></tr>
+        <tr><td>6月 1W</td><td>75</td><td>82</td><td><span class="badge green">109%</span></td><td>7.5</td><td>6</td><td><span class="badge yellow">80%</span></td><td>2.5</td><td>0</td><td><span class="badge red">0%</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="section-title">課題・ボトルネック</div>
+  <div class="alert-grid">
+    <div class="alert-card danger"><div class="alert-title">🔴 パス後受注が継続低迷（20%）</div><div class="alert-text">4月・5月ともに目標10件→2件。入力連携不備とパス品質不足が主因。切り返しトーク強化が急務。</div></div>
+    <div class="alert-card warn"><div class="alert-title">⚠️ ニーズありパス 達成率が低い</div><div class="alert-text">4月57%、5月70%と目標未達が続く。リスト拡張と架電スクリプトの見直しが必要。</div></div>
+    <div class="alert-card info"><div class="alert-title">✅ 有効接触数は4月・6月1Wで大幅超過</div><div class="alert-text">4月171%、6月1W 109%と有効接触数は確保。接触から受注への転換率改善が次の重点課題。</div></div>
+  </div>
+  <div class="next-action">
+    <div class="next-action-title">📌 ネクストアクション</div>
+    <ul>
+      <li>パス内容をモニタリングし「比較検討中」への切り返しトーク集を整備・強化する</li>
+      <li>警備を軸に物流・介護福祉など新規リストを拡張し、来月55件パスを目指す</li>
+      <li>入力連携不備を解消するため、パス時の入力フォーマットと連携ルールを再整備する</li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// Data & Config
+// ============================================================
+const MEMBERS = {
+  'ソリューション': ['下川','寒川','堀江'],
+  'カスタマーサクセス': ['吉岡（たま）','ゾンハン','畠山','なな','前田','中野'],
+  'テレマーケティング': ['島田','城市','長谷川','その他']
+};
+const KPIS = {
+  'ソリューション': ['複数プラン提案数（社単UP）','プレゼン金額（バジェットUP）万円','他媒体提案数（ミックス）','新規受注件数'],
+  'カスタマーサクセス': ['現S有効接触','現Sヒアリング','落ちS接触','新規プレ数','目標獲得社数'],
+  'テレマーケティング': ['有効接触件数','ニーズありパス件数','パス後受注件数']
+};
+const AVATARS = {
+  '下川':'linear-gradient(135deg,#6c8dfa,#a78bfa)',
+  '寒川':'linear-gradient(135deg,#f87171,#ec4899)',
+  '堀江':'linear-gradient(135deg,#34d399,#059669)',
+  '吉岡（たま）':'linear-gradient(135deg,#6c8dfa,#a78bfa)',
+  'ゾンハン':'linear-gradient(135deg,#f59e0b,#d97706)',
+  '畠山':'linear-gradient(135deg,#34d399,#059669)',
+  'なな':'linear-gradient(135deg,#ec4899,#be185d)',
+  '前田':'linear-gradient(135deg,#6c8dfa,#4338ca)',
+  '中野':'linear-gradient(135deg,#a78bfa,#7c3aed)',
+};
+
+let currentAgg = 'daily';
+
+function loadData(){ try{ return JSON.parse(localStorage.getItem('sales_log')||'[]') }catch(e){return[]} }
+function saveData(d){ localStorage.setItem('sales_log', JSON.stringify(d)) }
+
+// ============================================================
+// Navigation
+// ============================================================
+function switchPage(p){
+  document.querySelectorAll('.top-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(s=>s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('page-'+p).classList.add('active');
+  if(p==='agg') renderAgg();
+}
+function switchAgg(mode){
+  currentAgg = mode;
+  document.querySelectorAll('.agg-tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderAgg();
+}
+
+// ============================================================
+// Form helpers
+// ============================================================
+function updateMembers(){
+  const team = document.getElementById('f-team').value;
+  const sel = document.getElementById('f-member');
+  const ksel = document.getElementById('f-kpi');
+  sel.innerHTML = '<option value="">選択してください</option>';
+  ksel.innerHTML = '<option value="">選択してください</option>';
+  if(!team) return;
+  (MEMBERS[team]||[]).forEach(m=>{ const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o) });
+  (KPIS[team]||[]).forEach(k=>{ const o=document.createElement('option');o.value=k;o.textContent=k;ksel.appendChild(o) });
+}
+function resetForm(){
+  document.getElementById('entry-form').reset();
+  document.getElementById('f-member').innerHTML='<option value="">チームを選んでください</option>';
+  document.getElementById('f-kpi').innerHTML='<option value="">チームを選んでください</option>';
+  document.getElementById('success-msg').style.display='none';
+}
+
+// ============================================================
+// Form submit
+// ============================================================
+document.getElementById('entry-form').addEventListener('submit',function(e){
+  e.preventDefault();
+  const date = document.getElementById('f-date').value;
+  const team = document.getElementById('f-team').value;
+  const member = document.getElementById('f-member').value;
+  const kpi = document.getElementById('f-kpi').value;
+  const target = parseFloat(document.getElementById('f-target').value)||null;
+  const actual = parseFloat(document.getElementById('f-actual').value);
+  const note = document.getElementById('f-note').value.trim();
+  if(!date||!team||!member||!kpi) return;
+  const data = loadData();
+  data.push({ id: Date.now(), date, team, member, kpi, target, actual, note });
+  saveData(data);
+  const msg = document.getElementById('success-msg');
+  msg.style.display='block';
+  setTimeout(()=>msg.style.display='none', 3000);
+  document.getElementById('f-actual').value='';
+  document.getElementById('f-target').value='';
+  document.getElementById('f-note').value='';
+});
+
+// ============================================================
+// Badge helper
+// ============================================================
+function rateBadge(rate){
+  if(rate===null||isNaN(rate)) return '<span class="badge gray">—</span>';
+  const pct = Math.round(rate*100);
+  let cls = pct>=100?'green':pct>=80?'yellow':'red';
+  return `<span class="badge ${cls}">${pct}%</span>`;
+}
+function rateColor(rate){
+  if(rate===null||isNaN(rate)) return '#94a3b8';
+  const pct = rate*100;
+  return pct>=100?'#34d399':pct>=80?'#fbbf24':'#f87171';
+}
+
+// ============================================================
+// Week number helper
+// ============================================================
+function getWeekKey(dateStr){
+  const d = new Date(dateStr);
+  const jan1 = new Date(d.getFullYear(),0,1);
+  const week = Math.ceil(((d-jan1)/86400000+jan1.getDay()+1)/7);
+  return `${d.getFullYear()}-W${String(week).padStart(2,'0')}`;
+}
+function getMonthKey(dateStr){ return dateStr.slice(0,7) }
+
+// ============================================================
+// Render aggregation
+// ============================================================
+function renderAgg(){
+  const teamFilter = document.getElementById('agg-team').value;
+  const memberFilter = document.getElementById('agg-member').value;
+  let data = loadData();
+  if(teamFilter) data = data.filter(r=>r.team===teamFilter);
+  if(memberFilter) data = data.filter(r=>r.member===memberFilter);
+
+  // Update member dropdown
+  const allData = loadData();
+  const msel = document.getElementById('agg-member');
+  const curM = msel.value;
+  const members = [...new Set(allData.filter(r=>!teamFilter||r.team===teamFilter).map(r=>r.member))].sort();
+  msel.innerHTML='<option value="">全メンバー</option>';
+  members.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;if(m===curM)o.selected=true;msel.appendChild(o)});
+
+  // Group key
+  const keyFn = currentAgg==='daily' ? r=>r.date
+               : currentAgg==='weekly' ? r=>getWeekKey(r.date)
+               : r=>getMonthKey(r.date);
+
+  // Aggregate: {key: {member_kpi: {actual, target, count}}}
+  const groups = {};
+  data.forEach(r=>{
+    const k = keyFn(r);
+    if(!groups[k]) groups[k]={};
+    const mk = `${r.member}__${r.kpi}`;
+    if(!groups[k][mk]) groups[k][mk]={actual:0,target:null,count:0,member:r.member,kpi:r.kpi,notes:[]};
+    groups[k][mk].actual += r.actual;
+    if(r.target!==null){ groups[k][mk].target = (groups[k][mk].target||0)+r.target }
+    groups[k][mk].count++;
+    if(r.note) groups[k][mk].notes.push(r.note);
+  });
+
+  const keys = Object.keys(groups).sort().reverse();
+
+  // Summary cards (totals)
+  const totalActual = data.reduce((s,r)=>s+r.actual,0);
+  const totalTarget = data.filter(r=>r.target!==null).reduce((s,r)=>s+(r.target||0),0);
+  const totalRate = totalTarget>0 ? totalActual/totalTarget : null;
+  const entries = data.length;
+  const periodLabel = currentAgg==='daily'?'日':'週次'==='weekly'?'週':'月';
+  document.getElementById('agg-summary').innerHTML = `
+    <div class="card"><div class="card-label">入力件数（絞り込み後）</div><div class="card-value blue">${entries}</div></div>
+    <div class="card"><div class="card-label">実績合計</div><div class="card-value" style="color:${rateColor(totalRate)}">${totalActual.toLocaleString()}</div></div>
+    <div class="card"><div class="card-label">目標合計</div><div class="card-value gray">${totalTarget>0?totalTarget.toLocaleString():'—'}</div></div>
+    <div class="card"><div class="card-label">総合達成率</div><div class="card-value" style="color:${rateColor(totalRate)}">${totalRate!==null?Math.round(totalRate*100)+'%':'—'}</div></div>
+  `;
+
+  document.getElementById('agg-table-title').textContent =
+    currentAgg==='daily'?'日次集計':currentAgg==='weekly'?'週次集計':'月次集計';
+
+  if(keys.length===0){
+    document.getElementById('agg-thead').innerHTML='';
+    document.getElementById('agg-tbody').innerHTML=`<tr><td colspan="10" class="log-empty">データがありません。「日次入力」タブから進捗を入力してください。</td></tr>`;
+  } else {
+    // Collect all member_kpi combos
+    const allMKs = [...new Set(Object.values(groups).flatMap(g=>Object.keys(g)))].sort();
+    const thead = `<tr><th>${currentAgg==='daily'?'日付':currentAgg==='weekly'?'週':'月'}</th>${allMKs.map(mk=>{const[m,k]=mk.split('__');return`<th style="font-size:10px">${m}<br>${k}</th>`}).join('')}</tr>`;
+    document.getElementById('agg-thead').innerHTML=thead;
+    const rows = keys.map(k=>{
+      const g = groups[k];
+      const cells = allMKs.map(mk=>{
+        const d = g[mk];
+        if(!d) return '<td>—</td>';
+        const rate = d.target>0 ? d.actual/d.target : null;
+        return `<td>${rateBadge(rate)}<br><small class="gray">${d.actual}${d.target?'/'+d.target:''}</small></td>`;
+      }).join('');
+      return `<tr><td>${k}</td>${cells}</tr>`;
+    }).join('');
+    document.getElementById('agg-tbody').innerHTML=rows;
+  }
+
+  // Log table
+  const allLog = loadData().slice().reverse();
+  const logFiltered = allLog.filter(r=>(!teamFilter||r.team===teamFilter)&&(!memberFilter||r.member===memberFilter));
+  if(logFiltered.length===0){
+    document.getElementById('log-tbody').innerHTML=`<tr><td colspan="9" class="log-empty">ログがありません</td></tr>`;
+  } else {
+    document.getElementById('log-tbody').innerHTML = logFiltered.map(r=>{
+      const rate = r.target>0 ? r.actual/r.target : null;
+      return `<tr>
+        <td>${r.date}</td>
+        <td>${r.team}</td>
+        <td>${r.member}</td>
+        <td style="max-width:160px">${r.kpi}</td>
+        <td>${r.target??'—'}</td>
+        <td>${r.actual}</td>
+        <td>${rateBadge(rate)}</td>
+        <td style="max-width:200px;font-size:11px;color:#94a3b8">${r.note||'—'}</td>
+        <td><button class="delete-btn" onclick="deleteEntry(${r.id})">✕</button></td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function deleteEntry(id){
+  if(!confirm('この記録を削除しますか？')) return;
+  saveData(loadData().filter(r=>r.id!==id));
+  renderAgg();
+}
+function clearAllData(){
+  if(!confirm('全データを削除しますか？この操作は取り消せません。')) return;
+  localStorage.removeItem('sales_log');
+  renderAgg();
+}
+
+// ============================================================
+// Init
+// ============================================================
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
