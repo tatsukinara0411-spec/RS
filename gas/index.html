@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>営業進捗ダッシュボード</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Hiragino Sans','Segoe UI',Arial,sans-serif;background:#0f1117;color:#e2e8f0;min-height:100vh}
+
+/* ---- Header ---- */
+.header{background:linear-gradient(135deg,#1a1d2e,#16213e);border-bottom:1px solid #2d3561;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.header-title{font-size:18px;font-weight:700;background:linear-gradient(90deg,#6c8dfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header-date{font-size:12px;color:#64748b}
+
+/* ---- Bottom nav（スマホ向け） ---- */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#1a1d2e;border-top:1px solid #2d3561;display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;padding:12px 4px 10px;border:none;background:transparent;color:#64748b;font-size:10px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:.2s}
+.nav-btn .icon{font-size:20px}
+.nav-btn.active{color:#a78bfa}
+.nav-btn.active .icon{filter:drop-shadow(0 0 4px #a78bfa)}
+
+/* ---- Pages ---- */
+.page{display:none;padding:16px 16px 80px}
+.page.active{display:block}
+
+/* ---- Section title ---- */
+.stitle{font-size:14px;font-weight:700;color:#a78bfa;margin:20px 0 12px;display:flex;align-items:center;gap:6px}
+.stitle::before{content:'';width:3px;height:16px;background:#a78bfa;border-radius:2px}
+
+/* ---- Cards ---- */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.card{background:#1e2235;border:1px solid #2d3561;border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#6c8dfa,#a78bfa)}
+.card-label{font-size:10px;color:#64748b;margin-bottom:4px}
+.card-value{font-size:22px;font-weight:700}
+.card-sub{font-size:10px;margin-top:3px}
+.green{color:#34d399}.red{color:#f87171}.yellow{color:#fbbf24}.blue{color:#6c8dfa}.gray{color:#64748b}
+
+/* ---- Badge ---- */
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;min-width:48px;text-align:center}
+.badge.green{background:rgba(52,211,153,.15);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.badge.red{background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3)}
+.badge.yellow{background:rgba(251,191,36,.15);color:#fbbf24;border:1px solid rgba(251,191,36,.3)}
+.badge.gray{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+
+/* ---- Progress ---- */
+.pb-bg{height:4px;background:#2d3561;border-radius:2px;overflow:hidden;margin-top:3px}
+.pb-fill{height:100%;border-radius:2px}
+.fill-green{background:linear-gradient(90deg,#34d399,#10b981)}
+.fill-red{background:linear-gradient(90deg,#f87171,#ef4444)}
+.fill-yellow{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+
+/* ---- Input Form ---- */
+.form-card{background:#1e2235;border:1px solid #2d3561;border-radius:14px;padding:20px}
+.form-title{font-size:16px;font-weight:700;margin-bottom:16px}
+.form-group{margin-bottom:14px}
+label{display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+select,input[type=text],input[type=number],input[type=date],textarea{background:#16213e;border:1px solid #2d3561;border-radius:10px;padding:13px 14px;color:#e2e8f0;font-size:16px;width:100%;transition:.2s;font-family:inherit;-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+select:focus,input:focus,textarea:focus{outline:none;border-color:#6c8dfa;background:#1a2744}
+textarea{resize:none;height:80px;font-size:14px}
+.btn{width:100%;padding:15px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;transition:.2s;margin-top:4px}
+.btn-primary{background:linear-gradient(135deg,#6c8dfa,#a78bfa);color:#fff}
+.btn-primary:active{opacity:.85;transform:scale(.98)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:#2d3561;color:#94a3b8;margin-top:10px}
+.success-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e2235;border:1px solid #34d399;color:#34d399;padding:12px 24px;border-radius:30px;font-size:13px;font-weight:600;z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.error-toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#1e2235;border:1px solid #f87171;color:#f87171;padding:12px 24px;border-radius:30px;font-size:13px;font-weight:600;z-index:999;display:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+
+/* ---- Period tabs ---- */
+.period-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+.period-tab{padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #2d3561;background:transparent;color:#64748b;transition:.2s;white-space:nowrap;flex-shrink:0}
+.period-tab.active{background:#6c8dfa;color:#fff;border-color:#6c8dfa}
+
+/* ---- Table ---- */
+.tbl-wrap{overflow-x:auto;margin-bottom:16px;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px;background:#1e2235;border-radius:12px;overflow:hidden;border:1px solid #2d3561;min-width:400px}
+thead tr{background:#16213e}
+th{padding:10px 12px;text-align:center;font-size:10px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:10px 12px;border-top:1px solid #2d3561;text-align:center;font-size:12px}
+td:first-child{text-align:left;font-weight:600;color:#e2e8f0;font-size:11px}
+tr:hover td{background:rgba(108,141,250,.04)}
+.tbl-empty{text-align:center;color:#4a5568;padding:32px;font-size:13px}
+
+/* ---- Alert ---- */
+.alert-card{border-radius:10px;padding:14px;border-left:4px solid;margin-bottom:10px}
+.alert-card.warn{background:rgba(251,191,36,.07);border-color:#fbbf24}
+.alert-card.danger{background:rgba(248,113,113,.07);border-color:#f87171}
+.alert-card.info{background:rgba(108,141,250,.07);border-color:#6c8dfa}
+.alert-title{font-size:12px;font-weight:700;margin-bottom:4px}
+.alert-text{font-size:12px;color:#94a3b8;line-height:1.6}
+
+/* ---- Next action ---- */
+.next-action{background:linear-gradient(135deg,#1a2744,#1e2235);border:1px solid #3d5296;border-radius:12px;padding:16px;margin-bottom:16px}
+.na-title{font-size:12px;font-weight:700;color:#6c8dfa;margin-bottom:8px}
+.na-list{list-style:none}
+.na-list li{font-size:12px;color:#94a3b8;padding:4px 0 4px 16px;position:relative;line-height:1.5}
+.na-list li::before{content:'→';position:absolute;left:0;color:#6c8dfa}
+
+/* ---- Member card ---- */
+.member-card{background:#1e2235;border:1px solid #2d3561;border-radius:12px;padding:16px;margin-bottom:12px}
+.member-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6c8dfa,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.member-name{font-size:14px;font-weight:700}
+.member-role{font-size:10px;color:#64748b;margin-top:2px}
+.kpi-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #2d3561}
+.kpi-row:last-child{border-bottom:none}
+.kpi-label{font-size:11px;color:#94a3b8;flex:1;padding-right:8px}
+.kpi-nums{font-size:10px;color:#64748b;white-space:nowrap;margin-right:8px}
+
+/* ---- Loading ---- */
+.loading{text-align:center;padding:40px;color:#64748b;font-size:13px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #2d3561;border-top-color:#6c8dfa;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- Filter row ---- */
+.filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.filter-row select{flex:1;min-width:120px;font-size:13px;padding:9px 32px 9px 12px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">📊 営業進捗</div>
+  <div class="header-date" id="today-date"></div>
+</div>
+
+<div id="toast-success" class="success-toast">✅ 保存しました！</div>
+<div id="toast-error" class="error-toast">❌ 保存に失敗しました</div>
+
+<!-- ===== 日次入力 ===== -->
+<div id="page-input" class="page active">
+  <div class="stitle">✏️ デイリー進捗入力</div>
+  <div class="form-card">
+    <form id="entry-form">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="f-date" required>
+      </div>
+      <div class="form-group">
+        <label>チーム</label>
+        <select id="f-team" onchange="updateFormDropdowns()" required>
+          <option value="">選択してください</option>
+          <option value="ソリューション">ソリューション</option>
+          <option value="カスタマーサクセス">カスタマーサクセス</option>
+          <option value="テレマーケティング">テレマーケティング</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>メンバー名</label>
+        <select id="f-member" required>
+          <option value="">チームを選んでください</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>KPI 項目</label>
+        <select id="f-kpi" required>
+          <option value="">チームを選んでください</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-group">
+          <label>目標値</label>
+          <input type="number" id="f-target" placeholder="例: 10" inputmode="decimal" min="0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>実績値 *</label>
+          <input type="number" id="f-actual" placeholder="例: 8" inputmode="decimal" min="0" step="0.1" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>ネクストアクション・備考</label>
+        <textarea id="f-note" placeholder="今日の気づき・明日やること・ボトルネックなど"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" id="submit-btn">💾 保存する</button>
+      <button type="button" class="btn btn-secondary" onclick="resetForm()">リセット</button>
+    </form>
+  </div>
+</div>
+
+<!-- ===== 集計・分析 ===== -->
+<div id="page-agg" class="page">
+  <div class="stitle">📈 集計・分析</div>
+
+  <div class="period-tabs">
+    <button class="period-tab active" onclick="switchPeriod('daily',this)">日次</button>
+    <button class="period-tab" onclick="switchPeriod('weekly',this)">週次</button>
+    <button class="period-tab" onclick="switchPeriod('monthly',this)">月次</button>
+    <button class="period-tab" onclick="switchPeriod('quarterly',this)">クォーター</button>
+  </div>
+
+  <div class="filter-row">
+    <select id="agg-team" onchange="loadAggData()">
+      <option value="">全チーム</option>
+      <option value="ソリューション">ソリューション</option>
+      <option value="カスタマーサクセス">カスタマーサクセス</option>
+      <option value="テレマーケティング">テレマーケティング</option>
+    </select>
+    <select id="agg-member" onchange="loadAggData()">
+      <option value="">全メンバー</option>
+    </select>
+  </div>
+
+  <div class="cards" id="agg-summary"></div>
+
+  <div id="agg-content"><div class="loading"><span class="spinner"></span>読み込み中...</div></div>
+</div>
+
+<!-- ===== ダッシュボード ===== -->
+<div id="page-dash" class="page">
+  <div class="stitle">💼 チーム別ダッシュボード</div>
+
+  <div class="period-tabs" style="margin-bottom:16px">
+    <button class="period-tab active" onclick="switchTeam('ソリューション',this)">ソリューション</button>
+    <button class="period-tab" onclick="switchTeam('カスタマーサクセス',this)">CS</button>
+    <button class="period-tab" onclick="switchTeam('テレマーケティング',this)">テレマ</button>
+  </div>
+
+  <div id="dash-content"><div class="loading"><span class="spinner"></span>読み込み中...</div></div>
+</div>
+
+<!-- ===== ボトムナビ ===== -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchPage('input',this)">
+    <span class="icon">✏️</span>入力
+  </button>
+  <button class="nav-btn" onclick="switchPage('agg',this)">
+    <span class="icon">📈</span>集計
+  </button>
+  <button class="nav-btn" onclick="switchPage('dash',this)">
+    <span class="icon">💼</span>チーム
+  </button>
+</nav>
+
+<script>
+// ============================================================
+// 設定（GAS から自動で埋め込まれる想定だが、直接 URL を書いても良い）
+// ============================================================
+const GAS_URL = ''; // デプロイ後の Web App URL（Code.gs の APP_URL と同じ）
+
+const MEMBERS = {
+  'ソリューション': ['下川','寒川','堀江'],
+  'カスタマーサクセス': ['吉岡（たま）','ゾンハン','畠山','なな','前田','中野'],
+  'テレマーケティング': ['島田','城市','長谷川'],
+};
+const KPIS = {
+  'ソリューション': ['複数プラン提案数（社単UP）','プレゼン金額（バジェットUP）万円','他媒体提案数（ミックス）','新規受注件数'],
+  'カスタマーサクセス': ['現S有効接触','現Sヒアリング','落ちS接触','新規プレ数','目標獲得社数'],
+  'テレマーケティング': ['有効接触件数','ニーズありパス件数','パス後受注件数'],
+};
+const KGIS = {
+  'ソリューション': ['新規受注件数','プレゼン金額（バジェットUP）万円'],
+  'カスタマーサクセス': ['目標獲得社数','新規プレ数'],
+  'テレマーケティング': ['パス後受注件数','ニーズありパス件数'],
+};
+const AVATAR_COLORS = [
+  'linear-gradient(135deg,#6c8dfa,#a78bfa)',
+  'linear-gradient(135deg,#f87171,#ec4899)',
+  'linear-gradient(135deg,#34d399,#059669)',
+  'linear-gradient(135deg,#f59e0b,#d97706)',
+  'linear-gradient(135deg,#ec4899,#be185d)',
+  'linear-gradient(135deg,#6c8dfa,#4338ca)',
+];
+
+let currentPeriod = 'daily';
+let currentTeam = 'ソリューション';
+
+// ============================================================
+// Navigation
+// ============================================================
+function switchPage(p, btn) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (p === 'agg') loadAggData();
+  if (p === 'dash') loadDashData();
+}
+function switchPeriod(p, btn) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadAggData();
+}
+function switchTeam(t, btn) {
+  currentTeam = t;
+  document.querySelectorAll('.period-tab').forEach(tab => tab.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadDashData();
+}
+
+// ============================================================
+// Form helpers
+// ============================================================
+function updateFormDropdowns() {
+  const team = document.getElementById('f-team').value;
+  const msel = document.getElementById('f-member');
+  const ksel = document.getElementById('f-kpi');
+  msel.innerHTML = '<option value="">選択してください</option>';
+  ksel.innerHTML = '<option value="">選択してください</option>';
+  if (!team) return;
+  (MEMBERS[team] || []).forEach(m => { const o = new Option(m, m); msel.add(o); });
+  (KPIS[team] || []).forEach(k => { const o = new Option(k, k); ksel.add(o); });
+}
+function resetForm() {
+  document.getElementById('entry-form').reset();
+  document.getElementById('f-member').innerHTML = '<option value="">チームを選んでください</option>';
+  document.getElementById('f-kpi').innerHTML = '<option value="">チームを選んでください</option>';
+}
+
+// ============================================================
+// Form submit
+// ============================================================
+document.getElementById('entry-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  const payload = {
+    date:   document.getElementById('f-date').value,
+    team:   document.getElementById('f-team').value,
+    member: document.getElementById('f-member').value,
+    kpi:    document.getElementById('f-kpi').value,
+    target: document.getElementById('f-target').value ? parseFloat(document.getElementById('f-target').value) : null,
+    actual: parseFloat(document.getElementById('f-actual').value),
+    note:   document.getElementById('f-note').value.trim(),
+  };
+
+  try {
+    let ok = false;
+    if (GAS_URL) {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      ok = json.ok;
+    } else {
+      // GAS URL 未設定時はローカルに保存（開発用フォールバック）
+      const data = JSON.parse(localStorage.getItem('sales_log') || '[]');
+      data.push({ id: Date.now(), ...payload });
+      localStorage.setItem('sales_log', JSON.stringify(data));
+      ok = true;
+    }
+    if (ok) {
+      showToast('success');
+      document.getElementById('f-actual').value = '';
+      document.getElementById('f-target').value = '';
+      document.getElementById('f-note').value = '';
+    } else {
+      showToast('error');
+    }
+  } catch (err) {
+    // ネットワークエラー時もローカル保存
+    const data = JSON.parse(localStorage.getItem('sales_log') || '[]');
+    data.push({ id: Date.now(), ...payload });
+    localStorage.setItem('sales_log', JSON.stringify(data));
+    showToast('success');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '💾 保存する';
+});
+
+function showToast(type) {
+  const el = document.getElementById('toast-' + type);
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+}
+
+// ============================================================
+// Aggregation
+// ============================================================
+async function loadAggData() {
+  document.getElementById('agg-content').innerHTML = '<div class="loading"><span class="spinner"></span>集計中...</div>';
+
+  const team = document.getElementById('agg-team').value;
+  const member = document.getElementById('agg-member').value;
+
+  // メンバードロップダウン更新
+  const msel = document.getElementById('agg-member');
+  const curM = msel.value;
+  const members = team ? (MEMBERS[team] || []) : Object.values(MEMBERS).flat();
+  msel.innerHTML = '<option value="">全メンバー</option>';
+  members.forEach(m => { const o = new Option(m, m); if (m === curM) o.selected = true; msel.add(o); });
+
+  let entries = [];
+  try {
+    if (GAS_URL) {
+      const url = `${GAS_URL}?action=fetch&period=${currentPeriod}${team ? '&team=' + encodeURIComponent(team) : ''}${member ? '&member=' + encodeURIComponent(member) : ''}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      entries = json.entries || [];
+    } else {
+      entries = aggregateLocal(currentPeriod, team, member);
+    }
+  } catch (e) {
+    entries = aggregateLocal(currentPeriod, team, member);
+  }
+
+  renderAggSummary(entries);
+  renderAggTable(entries);
+}
+
+function aggregateLocal(period, team, member) {
+  let raw = JSON.parse(localStorage.getItem('sales_log') || '[]');
+  if (team) raw = raw.filter(r => r.team === team);
+  if (member) raw = raw.filter(r => r.member === member);
+
+  const keyFn = { daily: r => r.date, weekly: r => weekKey(r.date), monthly: r => r.date.slice(0,7), quarterly: r => quarterKey(r.date) }[period];
+  const map = {};
+  raw.forEach(r => {
+    const k = keyFn(r);
+    const mk = `${r.member}__${r.kpi}`;
+    if (!map[k]) map[k] = {};
+    if (!map[k][mk]) map[k][mk] = { member: r.member, kpi: r.kpi, actual: 0, target: null, count: 0 };
+    map[k][mk].actual += r.actual;
+    if (r.target !== null && r.target !== undefined) map[k][mk].target = (map[k][mk].target || 0) + r.target;
+    map[k][mk].count++;
+  });
+  const result = [];
+  Object.keys(map).sort().reverse().forEach(p => {
+    Object.values(map[p]).forEach(d => result.push({ period: p, ...d }));
+  });
+  return result;
+}
+
+function renderAggSummary(entries) {
+  const total = entries.reduce((s, r) => s + r.actual, 0);
+  const tgt = entries.filter(r => r.target !== null).reduce((s, r) => s + r.target, 0);
+  const rate = tgt > 0 ? total / tgt : null;
+  const periods = [...new Set(entries.map(r => r.period))].length;
+  document.getElementById('agg-summary').innerHTML = `
+    <div class="card"><div class="card-label">入力件数</div><div class="card-value blue">${entries.length}</div></div>
+    <div class="card"><div class="card-label">実績合計</div><div class="card-value" style="color:${rateColor(rate)}">${total.toLocaleString()}</div></div>
+    <div class="card"><div class="card-label">目標合計</div><div class="card-value gray">${tgt > 0 ? tgt.toLocaleString() : '—'}</div></div>
+    <div class="card"><div class="card-label">総合達成率</div><div class="card-value" style="color:${rateColor(rate)}">${rate !== null ? Math.round(rate * 100) + '%' : '—'}</div></div>
+  `;
+}
+
+function renderAggTable(entries) {
+  if (entries.length === 0) {
+    document.getElementById('agg-content').innerHTML = '<div class="tbl-empty">データがありません。<br>「入力」タブから進捗を入力してください。</div>';
+    return;
+  }
+  // 期間 × メンバーKPI のクロス集計
+  const periods = [...new Set(entries.map(r => r.period))].sort().reverse();
+  const mks = [...new Set(entries.map(r => `${r.member}__${r.kpi}`))].sort();
+  const map = {};
+  entries.forEach(r => {
+    if (!map[r.period]) map[r.period] = {};
+    map[r.period][`${r.member}__${r.kpi}`] = r;
+  });
+
+  const thead = `<tr><th>${currentPeriod === 'daily' ? '日付' : currentPeriod === 'weekly' ? '週' : currentPeriod === 'monthly' ? '月' : 'Q'}</th>${mks.map(mk => { const [m, k] = mk.split('__'); return `<th>${m}<br><span style="font-weight:400;color:#4a5568">${k}</span></th>`; }).join('')}</tr>`;
+  const tbody = periods.map(p => {
+    const cells = mks.map(mk => {
+      const d = map[p] && map[p][mk];
+      if (!d) return '<td style="color:#4a5568">—</td>';
+      const rate = d.target > 0 ? d.actual / d.target : null;
+      return `<td>${rateBadge(rate)}<br><small style="color:#64748b">${d.actual}${d.target ? '/' + d.target : ''}</small></td>`;
+    }).join('');
+    return `<tr><td>${p}</td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('agg-content').innerHTML = `<div class="tbl-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+// ============================================================
+// Dashboard（チーム別集計）
+// ============================================================
+async function loadDashData() {
+  document.getElementById('dash-content').innerHTML = '<div class="loading"><span class="spinner"></span>読み込み中...</div>';
+
+  let entries = [];
+  try {
+    if (GAS_URL) {
+      const url = `${GAS_URL}?action=fetch&period=weekly&team=${encodeURIComponent(currentTeam)}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      entries = json.entries || [];
+    } else {
+      entries = aggregateLocal('weekly', currentTeam, '');
+    }
+  } catch (e) {
+    entries = aggregateLocal('weekly', currentTeam, '');
+  }
+
+  renderDash(entries);
+}
+
+function renderDash(entries) {
+  const members = MEMBERS[currentTeam] || [];
+  const kgisForTeam = KGIS[currentTeam] || [];
+
+  if (entries.length === 0) {
+    document.getElementById('dash-content').innerHTML = '<div class="tbl-empty">このチームのデータはまだありません。</div>';
+    return;
+  }
+
+  // 直近の期間を取得
+  const latestPeriod = [...new Set(entries.map(r => r.period))].sort().reverse()[0];
+  const latest = entries.filter(r => r.period === latestPeriod);
+
+  // メンバーカード
+  const cards = members.map((member, i) => {
+    const memberEntries = latest.filter(r => r.member === member);
+    const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const rows = memberEntries.map(d => {
+      const rate = d.target > 0 ? d.actual / d.target : null;
+      const isKgi = kgisForTeam.includes(d.kpi);
+      const w = rate !== null ? Math.min(Math.round(rate * 100), 100) : 0;
+      const fillClass = rate === null ? '' : rate >= 1 ? 'fill-green' : rate >= 0.8 ? 'fill-yellow' : 'fill-red';
+      return `
+        <div class="kpi-row">
+          <div class="kpi-label">${d.kpi}${isKgi ? ' <span style="color:#fbbf24;font-size:10px">KGI</span>' : ''}</div>
+          <div class="kpi-nums">${d.target ? d.actual + '/' + d.target : d.actual}</div>
+          ${rateBadge(rate)}
+        </div>
+        <div class="pb-bg"><div class="pb-fill ${fillClass}" style="width:${w}%"></div></div>
+      `;
+    }).join('') || '<div style="font-size:12px;color:#4a5568;padding:8px 0">今週のデータなし</div>';
+
+    return `
+      <div class="member-card">
+        <div class="member-header">
+          <div class="avatar" style="background:${color}">${member.slice(0,1)}</div>
+          <div><div class="member-name">${member}</div><div class="member-role">${currentTeam}</div></div>
+        </div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  document.getElementById('dash-content').innerHTML = `
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px">期間: ${latestPeriod}</div>
+    ${cards}
+  `;
+}
+
+// ============================================================
+// Utils
+// ============================================================
+function rateBadge(rate) {
+  if (rate === null || isNaN(rate)) return '<span class="badge gray">—</span>';
+  const p = Math.round(rate * 100);
+  const cls = p >= 100 ? 'green' : p >= 80 ? 'yellow' : 'red';
+  return `<span class="badge ${cls}">${p}%</span>`;
+}
+function rateColor(rate) {
+  if (rate === null || isNaN(rate)) return '#94a3b8';
+  return rate >= 1 ? '#34d399' : rate >= 0.8 ? '#fbbf24' : '#f87171';
+}
+function weekKey(d) {
+  const dt = new Date(d);
+  const jan1 = new Date(dt.getFullYear(), 0, 1);
+  const w = Math.ceil(((dt - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${dt.getFullYear()}-W${String(w).padStart(2, '00')}`;
+}
+function quarterKey(d) {
+  const dt = new Date(d);
+  return `${dt.getFullYear()}-Q${Math.ceil((dt.getMonth() + 1) / 3)}`;
+}
+
+// ============================================================
+// Init
+// ============================================================
+document.getElementById('today-date').textContent = new Date().toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', weekday: 'short' });
+document.getElementById('f-date').value = new Date().toISOString().slice(0, 10);
+</script>
+</body>
+</html>
