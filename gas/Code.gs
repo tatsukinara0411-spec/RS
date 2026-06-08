@@ -1,7 +1,7 @@
 // ============================================================
 // 設定（ここを変更してください）
 // ============================================================
-const SPREADSHEET_ID = ''; // Google Sheets の ID を入力
+const SPREADSHEET_ID = '1yeOJ2TtCMxYdsM3IrJzYt6mSTMiYPp-sMIHoIo7q-yQ'; // 営業進捗ログ
 const SLACK_WEBHOOK_URL = ''; // Slack Incoming Webhook URL を入力
 const APP_URL = ''; // デプロイ後の Web App URL を入力
 
