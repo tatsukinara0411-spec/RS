@@ -40,8 +40,14 @@ async def run_scrape(dry_run: bool = False):
     headless = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() != "false"
 
     async with async_playwright() as p:
+        import glob as _glob
+        # 環境内に存在するChromiumを自動検索
+        candidates = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
+        executable = candidates[0] if candidates else None
+
         browser = await p.chromium.launch(
             headless=headless,
+            executable_path=executable,
             args=[
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
