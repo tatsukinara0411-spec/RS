@@ -3,7 +3,7 @@
 // ============================================================
 const SPREADSHEET_ID = '1yeOJ2TtCMxYdsM3IrJzYt6mSTMiYPp-sMIHoIo7q-yQ'; // 営業進捗ログ
 const SLACK_WEBHOOK_URL = ''; // Slack Incoming Webhook URL を入力
-const APP_URL = ''; // デプロイ後の Web App URL を入力
+const APP_URL = 'https://script.google.com/macros/s/AKfycbz0Nc1BDWz75FDts7ORttPQ6UUyfmhggRfWeQvrsPDLruvHZYURM5bx4J9iyxoF9VVW3w/exec';
 
 // ============================================================
 // メンバーマスタ（Slack User ID は Slack プロフィールから取得）

@@ -238,7 +238,7 @@ tr:hover td{background:rgba(108,141,250,.04)}
 // ============================================================
 // 設定（GAS から自動で埋め込まれる想定だが、直接 URL を書いても良い）
 // ============================================================
-const GAS_URL = ''; // デプロイ後の Web App URL（Code.gs の APP_URL と同じ）
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz0Nc1BDWz75FDts7ORttPQ6UUyfmhggRfWeQvrsPDLruvHZYURM5bx4J9iyxoF9VVW3w/exec';
 
 const MEMBERS = {
   'ソリューション': ['下川','寒川','堀江'],
@@ -557,7 +557,7 @@ function weekKey(d) {
   const dt = new Date(d);
   const jan1 = new Date(dt.getFullYear(), 0, 1);
   const w = Math.ceil(((dt - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-  return `${dt.getFullYear()}-W${String(w).padStart(2, '00')}`;
+  return `${dt.getFullYear()}-W${String(w).padStart(2, '0')}`;
 }
 function quarterKey(d) {
   const dt = new Date(d);
