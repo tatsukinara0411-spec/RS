@@ -1,4 +1,4 @@
-name: デバッグ: HTML構造確認
+name: debug-html-check
 
 on:
   workflow_dispatch:
@@ -15,14 +15,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install playwright pydantic
+      - name: Install deps
+        run: pip install playwright pydantic
 
-      - run: playwright install chromium --with-deps
+      - name: Install browser
+        run: playwright install chromium --with-deps
 
-      - name: HTML構造確認実行
+      - name: Run debug
         run: python debug_scrape.py
 
-      - name: HTMLファイルをアーティファクトにアップロード
+      - name: Upload HTML
         uses: actions/upload-artifact@v4
         if: always()
         with:
