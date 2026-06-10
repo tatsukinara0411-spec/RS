@@ -1,0 +1,50 @@
+name: テレアポリード 週次収集
+
+on:
+  schedule:
+    - cron: '0 23 * * 0'  # 毎週日曜23:00 UTC = 月曜8:00 JST
+  workflow_dispatch:        # 手動実行
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 依存関係インストール
+        run: pip install -r requirements.txt
+
+      - name: Playwright ブラウザインストール
+        run: playwright install chromium --with-deps
+
+      - name: SQLite キャッシュ復元（重複除外用）
+        uses: actions/cache@v4
+        with:
+          path: data/leads.db
+          key: leads-db-${{ github.run_id }}
+          restore-keys: |
+            leads-db-
+
+      - name: リード収集実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          PLAYWRIGHT_HEADLESS: "true"
+          LOG_LEVEL: "INFO"
+        run: python main.py --run-now
+
+      - name: SQLite キャッシュ保存
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/leads.db
+          key: leads-db-${{ github.run_id }}
