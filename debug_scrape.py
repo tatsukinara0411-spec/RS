@@ -1,43 +1,54 @@
 """
-デバッグ用スクリプト: 各サイトの実際のHTML構造を出力する
+デバッグ用: 各サイトの正しいURL・セレクタを調査する
 """
 import asyncio
 import glob
 
 
-async def debug_site(context, url: str, site_name: str, wait: str = "domcontentloaded"):
-    print(f"\n{'='*60}")
-    print(f"サイト: {site_name}")
-    print(f"URL: {url}")
-    print(f"{'='*60}")
+TEST_URLS = [
+    # マイナビバイト
+    ("mynavi_1", "https://baito.mynavi.jp/kanto/tokyo/", "domcontentloaded"),
+    ("mynavi_2", "https://baito.mynavi.jp/kanto/tokyo/?jobtype[]=0601", "domcontentloaded"),
+    ("mynavi_3", "https://baito.mynavi.jp/list/?kw=%E8%AD%A6%E5%82%99&pref=13", "domcontentloaded"),
+    ("mynavi_4", "https://baito.mynavi.jp/?kw=%E8%AD%A6%E5%82%99&area=13&p=1", "domcontentloaded"),
+    # enゲージ（求人検索）
+    ("engage_1", "https://en-gage.net/s/?job_keyword=%E8%AD%A6%E5%82%99&prefecture=13", "networkidle"),
+    ("engage_2", "https://en-gage.net/search/?keyword=%E8%AD%A6%E5%82%99&area=13", "networkidle"),
+    ("engage_3", "https://en-gage.net/", "networkidle"),
+    # 求人ボックス
+    ("kyujin_1", "https://kyujinbox.com/", "domcontentloaded"),
+    ("kyujin_2", "https://xn--dckl4bvb2124eshi.jp/", "domcontentloaded"),
+    ("kyujin_3", "https://kyujin-box.com/", "domcontentloaded"),
+]
 
+
+async def check_url(context, name, url, wait):
     page = await context.new_page()
     try:
-        await page.goto(url, wait_until=wait, timeout=30000)
-        await asyncio.sleep(3)
-
+        await page.goto(url, wait_until=wait, timeout=20000)
+        await asyncio.sleep(2)
         title = await page.title()
-        print(f"ページタイトル: {title}")
-
         text = await page.inner_text("body")
-        print(f"\n本文（先頭1000文字）:\n{text[:1000]}")
-
-        for selector in ["li", "article", ".item", "[class*='item']", "[class*='card']",
-                         "[class*='list']", "[class*='result']", "[class*='job']", "[class*='company']"]:
-            els = await page.query_selector_all(selector)
-            if 2 < len(els) < 200:
-                print(f"\nセレクタ '{selector}': {len(els)}件")
-                sample = await els[0].inner_text()
-                print(f"  サンプル: {sample[:150]!r}")
-
         html = await page.content()
-        fname = f"debug_{site_name}.html"
-        with open(fname, "w", encoding="utf-8") as f:
+
+        print(f"\n[{name}] {url}")
+        print(f"  タイトル: {title}")
+        print(f"  本文先頭: {text[:200].replace(chr(10), ' ')!r}")
+
+        # リスト要素の数を確認
+        for sel in ["li", "article", ".job", "[class*='job']", "[class*='item']", "[class*='result']"]:
+            els = await page.query_selector_all(sel)
+            if 3 < len(els) < 500:
+                sample = (await els[0].inner_text())[:80]
+                print(f"  {sel}: {len(els)}件 例={sample!r}")
+
+        # HTMLを保存
+        with open(f"debug_{name}.html", "w", encoding="utf-8") as f:
             f.write(html)
-        print(f"\nHTML全文を {fname} に保存（{len(html)}文字）")
+        print(f"  HTML保存: debug_{name}.html ({len(html)}文字)")
 
     except Exception as e:
-        print(f"エラー: {e}")
+        print(f"[{name}] エラー: {e}")
     finally:
         await page.close()
 
@@ -59,10 +70,8 @@ async def main():
             viewport={"width": 1280, "height": 800},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
         )
-
-        await debug_site(context, "https://baito.mynavi.jp/list/?kw=%E8%AD%A6%E5%82%99&area%5B%5D=130000&p=1", "mynavi")
-        await debug_site(context, "https://kyujinbox.com/jobs?location=%E6%9D%B1%E4%BA%AC%E9%83%BD&job=%E8%AD%A6%E5%82%99&page=1", "kyujinbox")
-        await debug_site(context, "https://en-gage.net/company/search/?keyword=%E8%AD%A6%E5%82%99&prefecture=%E6%9D%B1%E4%BA%AC%E9%83%BD", "engage", wait="networkidle")
+        for name, url, wait in TEST_URLS:
+            await check_url(context, name, url, wait)
 
         await context.close()
         await browser.close()
