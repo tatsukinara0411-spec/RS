@@ -9,6 +9,7 @@ from scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
+# 求人ボックス求職者サイト (xn--pckua2a7gp15o89zb.com = 求人ボックス.com)
 BASE_URL = "https://xn--pckua2a7gp15o89zb.com"
 
 INDUSTRY_KEYWORDS = {
@@ -37,12 +38,10 @@ class KyujinboxScraper(BaseScraper):
             page = await context.new_page()
             try:
                 await self.safe_goto(page, url)
-                await asyncio.sleep(1)
+                await asyncio.sleep(2)
 
-                cards = await page.query_selector_all("[class*='result-item'], [class*='job-item'], [class*='ResultItem']")
-                if not cards:
-                    cards = await page.query_selector_all("article")
-
+                # 求人カード: .p-jobPickUp
+                cards = await page.query_selector_all(".p-jobPickUp")
                 if not cards:
                     logger.warning(f"[求人BOX] カードなし: {url}")
                     break
@@ -54,6 +53,7 @@ class KyujinboxScraper(BaseScraper):
                     if lead:
                         leads.append(lead)
 
+                # 次ページ
                 next_btn = await page.query_selector(f"a[href*='page={page_no + 1}'], .pagination a[rel='next']")
                 if not next_btn:
                     break
@@ -68,19 +68,19 @@ class KyujinboxScraper(BaseScraper):
 
     async def _parse_card(self, card, industry: str, source_url: str) -> Lead | None:
         try:
-            name_el = await card.query_selector(
-                "[class*='company'], [class*='corp'], [class*='employer'], .company-name"
-            )
-            company_name = (await name_el.inner_text()).strip() if name_el else ""
-            if not company_name:
-                h_el = await card.query_selector("h2, h3")
-                if h_el:
-                    company_name = (await h_el.inner_text()).strip()
+            # 会社名: h3タグ内に「会社名｜求人タイトル」形式
+            h_el = await card.query_selector("h3, .p-jobPickUp_ttl")
+            if not h_el:
+                return None
+            raw = (await h_el.inner_text()).strip()
+            # 「会社名｜求人タイトル」→ 会社名だけ取る
+            company_name = raw.split("｜")[0].strip()
             if not company_name:
                 return None
 
+            # 住所: desc系クラスから取得、なければ東京都
             addr_el = await card.query_selector(
-                "[class*='location'], [class*='address'], [class*='place'], [class*='area']"
+                ".p-jobPickUp_desc, [class*='location'], [class*='address'], [class*='place'], [class*='area']"
             )
             address = (await addr_el.inner_text()).strip() if addr_el else "東京都"
             if not address:

@@ -37,11 +37,24 @@ class EnEngageScraper(BaseScraper):
             page = await context.new_page()
             try:
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                await asyncio.sleep(3)
+                await asyncio.sleep(10)  # SPA描画を十分待つ
 
+                # 結果件数ログ
+                count_text = await page.evaluate(
+                    "() => { const s = document.querySelector('section'); return s ? s.innerText.substring(0,100) : ''; }"
+                )
+                logger.info(f"[enゲージ] section: {count_text[:80]}")
+
+                # 企業カード候補（優先順）
                 rows = await page.query_selector_all("li.row.row--company")
                 if not rows:
                     rows = await page.query_selector_all("[class*='row--company']")
+                if not rows:
+                    rows = await page.query_selector_all(".md_card .cardContent")
+                if not rows:
+                    rows = await page.query_selector_all(".md_card")
+
+                logger.info(f"[enゲージ] カード数: {len(rows)} | {url}")
 
                 if not rows:
                     logger.warning(f"[enゲージ] カードなし: {url}")
@@ -69,19 +82,13 @@ class EnEngageScraper(BaseScraper):
     async def _parse_row(self, row, industry: str, source_url: str) -> Lead | None:
         try:
             company_name = (await row.inner_text()).strip()
-            if not company_name or len(company_name) > 60:
+            if not company_name or len(company_name) > 80:
                 return None
             company_name = company_name.split("\n")[0].strip()
             if not company_name:
                 return None
 
             address = "東京都"
-            parent = await row.evaluate_handle("el => el.closest('ul') || el.parentElement")
-            if parent:
-                pref_el = await parent.query_selector("[class*='pref'], [class*='area'], [class*='place']")
-                if pref_el:
-                    address = (await pref_el.inner_text()).strip() or "東京都"
-
             phone = ""
             phone_el = await row.query_selector("a[href^='tel:']")
             if phone_el:
