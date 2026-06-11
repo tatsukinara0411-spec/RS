@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-URLパターン調査 v2
-- enゲージ: 正しいURL確認済み、HTML構造調査
-- 求人ボックス: 正しいパス調査
-- マイナビバイト: ホームページHTMLからURL構造解析
+URLパターン調査 v3
+- mynavi tokyoページの詳細構造調査
+- engageのReact HTML調査
+- kyujin-boxのリンク調査
 """
 import asyncio
 import glob as _glob
@@ -38,9 +38,8 @@ def save_html(name, html):
     safe = re.sub(r'[^a-zA-Z0-9_\-]', '_', name)
     fname = f"debug_{safe}.html"
     with open(fname, "w", encoding="utf-8") as f:
-        f.write(html[:100000])
+        f.write(html)
     logger.info(f"  HTML保存: {fname} ({len(html)}bytes)")
-    return fname
 
 
 async def main():
@@ -65,101 +64,118 @@ async def main():
             ),
         )
 
-        # ===== enゲージ: HTML構造調査 =====
-        logger.info("===== enゲージ HTML構造調査 =====")
-        url = "https://en-gage.net/user/search/?searchKey=%E8%AD%A6%E5%82%99&pref=13"
-        page, status, title, html = await get_page(context, url, sleep_sec=4)
+        # ===== マイナビバイト: tokyoページの構造調査 =====
+        logger.info("===== マイナビバイト /tokyo/ 調査 =====")
+        page, status, title, html = await get_page(context, "https://baito.mynavi.jp/tokyo/", sleep_sec=2)
         logger.info(f"  {status} | {title[:60]}")
         if page:
-            # 全セレクタ調査
-            for sel in [
-                ".company-list__item", ".company-card", ".company-item",
-                "[class*='CompanyItem']", "[class*='companyItem']",
-                "[class*='company-list']", "[class*='companyList']",
-                "[class*='Company']", "[class*='SearchResult']",
-                "[class*='result']", "[class*='Result']",
-                "article", ".card", "li.list__item", "ul li",
-                "[class*='Card']", "[class*='Item']",
-            ]:
+            # 求亿リンク構造を調査
+            links = await page.query_selector_all("a[href*='keibii'], a[href*='seikyu'], a[href*='keibi'], a[href*='keigo']")
+            logger.info(f"  警備リンク: {len(links)}件")
+
+            # 業種リンクを探す
+            all_links = await page.query_selector_all("a[href*='/tokyo/']")
+            logger.info(f"  /tokyo/を含むリンク: {len(all_links)}件")
+            for link in all_links[:20]:
+                href = await link.get_attribute("href")
+                txt = (await link.inner_text()).strip()[:30]
+                if href and ('/keibi' in href or '/unso' in href or '/gaishoku' in href or 'job' in href):
+                    logger.info(f"    {href} | {txt}")
+
+            # 全リンクのパターンを確認
+            all_links2 = await page.query_selector_all("a")
+            hrefs = set()
+            for link in all_links2:
+                href = await link.get_attribute("href")
+                if href and 'baito.mynavi.jp' in href and any(x in href for x in ['job', 'keibi', 'keigo', 'unso', 'gaishoku', 'shoku', 'gyoshu', 'type', 'cond']):
+                    hrefs.add(href)
+            for h in sorted(hrefs)[:20]:
+                logger.info(f"    求人リンク候補: {h}")
+
+            # カードセレクタも調査
+            for sel in [".p-joblist-item", ".job-list__item", ".p-job-list__item",
+                        "article", ".p-list-unit", "[class*='joblist']",
+                        "[class*='job-list']", "[class*='p-list']"]:
                 els = await page.query_selector_all(sel)
-                if els and 2 < len(els) < 200:
+                if els and len(els) > 2:
                     txt = await els[0].inner_text()
-                    logger.info(f"  セレクタ '{sel}': {len(els)}件 | 最初: {txt[:100]}")
-            # 件数を確認
-            m = re.search(r'[\d,]+\s*社', html)
-            if m:
-                logger.info(f"  件数: {m.group(0)}")
-            # HTML先頤65000字を印刺して構造確認
-            logger.info(f"  HTML先頤65000: {html[:500]}")
-            await page.close()
-        save_html("engage_user_search_keibii", html)
-
-        # 遷移先URLも調査
-        url2 = "https://en-gage.net/user/search/?searchKey=%E9%81%8B%E8%BC%B8&pref=13"
-        page2, status2, title2, html2 = await get_page(context, url2, sleep_sec=4)
-        logger.info(f"  運輸: {status2} | {len(html2)}bytes")
-        if page2:
-            for sel in ["[class*='Item']", "[class*='Card']", "article", "ul li"]:
-                els = await page2.query_selector_all(sel)
-                if els and 2 < len(els) < 200:
-                    txt = await els[0].inner_text()
-                    logger.info(f"  '{sel}': {len(els)}件 | {txt[:100]}")
+                    logger.info(f"  カード候補 '{sel}': {len(els)}件 | {txt[:100]}")
                     break
-            await page2.close()
-        save_html("engage_user_search_unsou", html2)
 
-        # ===== 求人ボックス: 正しいパス調査 =====
-        logger.info("===== 求人ボックス URL調査 =====")
-        kyujin_urls = [
-            "https://kyujin-box.com/",
-            "https://kyujin-box.com/jobs/search?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
-            "https://kyujin-box.com/search?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
-            "https://kyujin-box.com/job/?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
-            "https://kyujin-box.com/jobs/?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
-        ]
-        for url in kyujin_urls:
-            page, status, title, html = await get_page(context, url, sleep_sec=2)
-            logger.info(f"  {status} | {title[:70]} | {url[-50:]}")
-            if page:
-                # リンクを収集して正しいURL候補を探す
-                links = await page.query_selector_all("a[href*='job'], a[href*='search'], a[href*='find']")
-                for link in links[:10]:
-                    href = await link.get_attribute("href")
-                    txt = (await link.inner_text()).strip()[:40]
-                    if href:
-                        logger.info(f"    リンク: {href} | {txt}")
-                await page.close()
-            safe_name = f"kyujin_{url[-40:].replace('/', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('%', '_').replace(':', '_')}"
-            save_html(safe_name, html)
+            await page.close()
+        save_html("mynavi_tokyo", html)
 
-        # ===== マイナビバイト: ホームページから検索URLを找す =====
-        logger.info("===== マイナビバイト URL調査 =====")
-        mynavi_urls = [
-            "https://baito.mynavi.jp/",
-            "https://baito.mynavi.jp/pref13/",
-            "https://baito.mynavi.jp/tokyo/",
-            "https://baito.mynavi.jp/list/?keyword=%E8%AD%A6%E5%82%99&pref_code=13",
-            "https://baito.mynavi.jp/list/?keyword=%E8%AD%A6%E5%82%99&area=13",
-            "https://baito.mynavi.jp/list/?keyword=%E8%AD%A6%E5%82%99",
+        # 業種別URLパターンを試す
+        logger.info("===== マイナビバイト 業種別URL試行 =====")
+        mynavi_try = [
+            "https://baito.mynavi.jp/tokyo/keigo/",
+            "https://baito.mynavi.jp/tokyo/keibi/",
+            "https://baito.mynavi.jp/tokyo/unso/",
+            "https://baito.mynavi.jp/tokyo/gaishoku/",
+            "https://baito.mynavi.jp/kanto/tokyo/keigo/",
+            "https://baito.mynavi.jp/kanto/tokyo/unso/",
+            "https://baito.mynavi.jp/search/?kw=%E8%AD%A6%E5%82%99&area=tokyo",
+            "https://baito.mynavi.jp/list/?kw=%E8%AD%A6%E5%82%99&areaId=13",
+            "https://baito.mynavi.jp/list/?keyword=%E8%AD%A6%E5%82%99&areaId=13",
         ]
-        for url in mynavi_urls:
-            page, status, title, html = await get_page(context, url, sleep_sec=2)
-            logger.info(f"  {status} | {title[:60]} | {url}")
-            if page and status == 200:
-                # 検索フォームや求人カードを調査
-                for sel in [
-                    "form", "input[name*='kw']", "input[name*='keyword']",
-                    "input[name*='word']", "a[href*='/list/']",
-                ]:
-                    els = await page.query_selector_all(sel)
-                    if els:
-                        for el in els[:3]:
-                            tag = await el.get_attribute("name") or await el.get_attribute("action") or await el.get_attribute("href") or ""
-                            logger.info(f"  '{sel}' 候補: {tag[:80]}")
-                        break
-                await page.close()
-            safe_name = f"mynavi_{url[-50:].replace('/', '_').replace('?', '_').replace('&', '_').replace('=', '_').replace('%', '_').replace(':', '_')}"
-            save_html(safe_name, html)
+        for url in mynavi_try:
+            page, status, title, html = await get_page(context, url)
+            if status == 200:
+                if page:
+                    for sel in [".p-joblist-item", ".job-list__item", "article",
+                                "[class*='job']", "[class*='list-item']"]:
+                        els = await page.query_selector_all(sel)
+                        if els and len(els) > 2:
+                            txt = await els[0].inner_text()
+                            logger.info(f"  {url} | '{sel}': {len(els)}件 | {txt[:80]}")
+                            break
+                    else:
+                        logger.info(f"  {url} | 200 だがカードなし")
+                    await page.close()
+            else:
+                logger.info(f"  {status} | {url}")
+            safe = re.sub(r'[^a-zA-Z0-9_]', '_', url[-40:])
+            save_html(f"mynavi_try_{safe}", html)
+
+        # ===== enゲージ: HTMLの詳細構造を印刺 =====
+        logger.info("===== enゲージ HTML詳細調査 =====")
+        url = "https://en-gage.net/user/search/?searchKey=%E8%AD%A6%E5%82%99&pref=13"
+        page, status, title, html = await get_page(context, url, sleep_sec=5)
+        logger.info(f"  {status} | len={len(html)}")
+        if page:
+            # ページ内の全テキストを印刺
+            body_text = await page.inner_text("body")
+            logger.info(f"  BODY先頯1000文字: {body_text[:1000]}")
+
+            # クラス属性を持つ全要素を調査
+            all_els = await page.query_selector_all("[class]")
+            class_counts = {}
+            for el in all_els[:500]:
+                cls = await el.get_attribute("class")
+                if cls:
+                    for c in cls.split():
+                        class_counts[c] = class_counts.get(c, 0) + 1
+            top_classes = sorted(class_counts.items(), key=lambda x: -x[1])[:30]
+            logger.info(f"  上位クラス: {top_classes}")
+
+            await page.close()
+        save_html("engage_debug_detail", html)
+
+        # ===== kyujin-box: ホームページから求職者向けURLを探す =====
+        logger.info("===== kyujin-box ホームページリンク調査 =====")
+        page, status, title, html = await get_page(context, "https://kyujin-box.com/", sleep_sec=2)
+        logger.info(f"  {status} | {title}")
+        if page:
+            # 全リンクを調査
+            all_links = await page.query_selector_all("a")
+            logger.info(f"  全リンク数: {len(all_links)}")
+            for link in all_links:
+                href = await link.get_attribute("href")
+                txt = (await link.inner_text()).strip()[:40]
+                if href:
+                    logger.info(f"    {href[:80]} | {txt}")
+            await page.close()
+        save_html("kyujin_home", html)
 
         await context.close()
         await browser.close()
