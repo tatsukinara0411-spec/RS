@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-URLパターン調査 v4 - 最終確認
-- mynavi /tokyo/keibi/ の正しいカードセレクタ
-- engage .md_cardの中身確認
-- kyujinbox.com 求職者URLテスト
+デバッグ v5 - 最終確認
 """
 import asyncio
 import glob as _glob
@@ -15,7 +12,6 @@ from playwright.async_api import async_playwright
 
 logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
-
 HEADLESS = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() != "false"
 
 
@@ -45,144 +41,155 @@ def save_html(name, html):
 async def main():
     candidates = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
     executable = candidates[0] if candidates else None
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(
-            headless=HEADLESS,
-            executable_path=executable,
+            headless=HEADLESS, executable_path=executable,
             args=["--no-sandbox", "--disable-setuid-sandbox",
                   "--disable-blink-features=AutomationControlled"],
         )
         context = await browser.new_context(
-            locale="ja-JP",
-            timezone_id="Asia/Tokyo",
+            locale="ja-JP", timezone_id="Asia/Tokyo",
             viewport={"width": 1280, "height": 800},
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
+            user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"),
         )
 
-        # ===== マイナビバイト: /tokyo/keibi/ のカード構造 =====
-        logger.info("===== マイナビバイト /tokyo/keibi/ セレクタ調査 =====")
+        # ===== マイナビバイト: shopの親要素と住所クラスを特定 =====
+        logger.info("===== マイナビバイト 住所・カード構造調査 =====")
         page, status, title, html = await get_page(
-            context, "https://baito.mynavi.jp/tokyo/keibi/", sleep_sec=2
-        )
+            context, "https://baito.mynavi.jp/tokyo/keibi/", sleep_sec=2)
         logger.info(f"  {status} | {title[:60]}")
         if page:
-            # jobを含むクラスの詳細調査
-            job_els = await page.query_selector_all("[class*='job']")
-            logger.info(f"  [class*='job'] 全{len(job_els)}件")
+            # shop要素の最初を取得してその親要素のクラスを調べる
+            shops = await page.query_selector_all("[class*='shop']")
+            logger.info(f"  shop要素数: {len(shops)}")
+            if shops:
+                # 最初のshop要素
+                el = shops[0]
+                txt = (await el.inner_text()).strip()
+                cls = await el.get_attribute("class")
+                logger.info(f"  shop[0] class={cls} | {txt[:50]}")
+                # 親を辿ってカード要素を探す
+                for i in range(5):
+                    parent = await el.evaluate_handle("el => el.parentElement")
+                    pcls = await parent.get_attribute("class")
+                    ptag = await parent.evaluate("el => el.tagName")
+                    logger.info(f"  親[{i}] tag={ptag} class={pcls}")
+                    el = parent
 
-            # 実際の求人カードに絞り込む
-            card_sels = [
-                ".p-joblist-item", ".p-job-list__item", ".job-list__item",
-                ".p-list-unit", ".p-list-item", ".job-card",
-                "[class*='joblist-item']", "[class*='job-item']",
-                "[class*='p-job']", "[class*='listItem']",
-                "[class*='jobcard']", "[class*='jobCard']",
+            # 住所候補クラスを探す
+            addr_sels = [
+                "[class*='area']", "[class*='place']", "[class*='location']",
+                "[class*='address']", "[class*='station']", "[class*='access']",
+                "[class*='pref']", "[class*='city']",
             ]
-            for sel in card_sels:
+            for sel in addr_sels:
                 els = await page.query_selector_all(sel)
                 if els:
-                    txt = await els[0].inner_text()
-                    logger.info(f"  '{sel}': {len(els)}件 | {txt[:120]}")
+                    txt = (await els[0].inner_text()).strip()
+                    logger.info(f"  住所候補 '{sel}': {len(els)}件 | {txt[:60]}")
 
-            # 会社名候補を探す
-            company_sels = [
-                ".p-company-name", ".company-name", "[class*='company']",
-                ".p-store-name", "[class*='store']", "[class*='shop']",
-            ]
-            for sel in company_sels:
-                els = await page.query_selector_all(sel)
-                if els:
-                    txt = await els[0].inner_text()
-                    logger.info(f"  会社名 '{sel}': {len(els)}件 | {txt[:60]}")
-                    break
-
-            # ページネーションの次ページURLパターンも調査
-            next_links = await page.query_selector_all("a[href*='/tokyo/keibi/']")
+            # ページネーション: 次ページURL
+            next_links = await page.query_selector_all(".pagination a, [class*='next'], [class*='pager'] a")
             for link in next_links[:5]:
                 href = await link.get_attribute("href")
-                txt = (await link.inner_text()).strip()[:30]
-                if href and ('p=' in href or 'page' in href or href.endswith('/2')):
-                    logger.info(f"  次ページ候補: {href} | {txt}")
+                txt = (await link.inner_text()).strip()[:20]
+                logger.info(f"  ページネーション: {href} | {txt}")
 
             await page.close()
-        save_html("mynavi_keibi", html)
+        save_html("mynavi_keibi_v5", html)
 
-        # ===== enゲージ: md_cardの中身確認 =====
-        logger.info("===== enゲージ .md_card調査 =====")
+        # ===== enゲージ: script内JSONと実際のリスト要素を探す =====
+        logger.info("===== enゲージ script JSONと求人リスト調査 =====")
         url = "https://en-gage.net/user/search/?searchKey=%E8%AD%A6%E5%82%99&pref=13"
-        page, status, title, html = await get_page(context, url, sleep_sec=5)
+        page, status, title, html = await get_page(context, url, sleep_sec=6)
         logger.info(f"  {status} | len={len(html)}")
         if page:
-            # .md_cardの中身を調査
-            cards = await page.query_selector_all(".md_card")
-            logger.info(f"  .md_card: {len(cards)}件")
-            for i, card in enumerate(cards[:5]):
-                txt = (await card.inner_text()).strip()
-                logger.info(f"  card[{i}]: {txt[:200]}")
+            # script内のJSONを探す (Next.js __NEXT_DATA__ など)
+            scripts = await page.query_selector_all("script")
+            for i, s in enumerate(scripts):
+                content_s = await s.inner_text()
+                if '株式会社' in content_s or '会社名' in content_s or 'companyName' in content_s:
+                    logger.info(f"  script[{i}]に会社名データあり: {content_s[:500]}")
+                    break
 
-            # .cardContentも確認
-            contents = await page.query_selector_all(".cardContent")
-            logger.info(f"  .cardContent: {len(contents)}件")
-            for i, c in enumerate(contents[:3]):
-                txt = (await c.inner_text()).strip()
-                logger.info(f"  content[{i}]: {txt[:200]}")
+            # 株式会社を含む要素を探す
+            all_els = await page.query_selector_all("*")
+            kaisha_found = 0
+            for el in all_els[:2000]:
+                try:
+                    txt = await el.evaluate("el => el.childNodes.length === 1 && el.firstChild.nodeType === 3 ? el.firstChild.nodeValue : ''")
+                    if txt and ('株式会社' in txt or '有限会社' in txt):
+                        cls = await el.get_attribute("class") or ""
+                        tag = await el.evaluate("el => el.tagName")
+                        logger.info(f"  会社名発見: tag={tag} class={cls} | {txt[:60]}")
+                        kaisha_found += 1
+                        if kaisha_found >= 5:
+                            break
+                except:
+                    pass
 
-            # ページネーション調査
-            next_links = await page.query_selector_all("a[href*='page'], .pagination a, [class*='page']")
-            logger.info(f"  ページネーション候補: {len(next_links)}件")
-            for link in next_links[:3]:
-                href = await link.get_attribute("href")
-                txt = (await link.inner_text()).strip()[:20]
-                logger.info(f"    {href} | {txt}")
-
-            # 件数
-            body = await page.inner_text("body")
-            m = re.search(r'(\d+)\s*社', body)
-            if m:
-                logger.info(f"  件数: {m.group(0)}")
+            if kaisha_found == 0:
+                # HTMLから直接検索
+                m = re.findall(r'株式会社[^<"]{0,30}', html)
+                logger.info(f"  HTML内の株式会社: {m[:10]}")
 
             await page.close()
-        save_html("engage_keibi_final", html)
+        save_html("engage_v5", html)
 
-        # ===== 求人ボックス求職者サイト =====
-        logger.info("===== 求人ボックス 求職者サイト調査 =====")
-        kyujin_urls = [
-            "https://xn--pckua2a7gp15o89zb.com/",  # 求人ボックス.com
-            "https://xn--pckua2a7gp15o89zb.com/jobs?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
-            "https://xn--pckua2a7gp15o89zb.com/jobs?q=%E8%AD%A6%E5%82%99+%E3%82%A2%E3%83%AB%E3%83%90%E3%82%A4ト&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
+        # ===== 求人ボックス: 検索URLを探す =====
+        logger.info("===== 求人ボックス 検索URL調査 =====")
+        page, status, title, html = await get_page(
+            context, "https://xn--pckua2a7gp15o89zb.com/", sleep_sec=3)
+        logger.info(f"  {status} | {title[:60]}")
+        if page:
+            # 検索フォームを探す
+            forms = await page.query_selector_all("form")
+            for i, form in enumerate(forms[:3]):
+                action = await form.get_attribute("action") or ""
+                method = await form.get_attribute("method") or ""
+                logger.info(f"  form[{i}] action={action} method={method}")
+                inputs = await form.query_selector_all("input")
+                for inp in inputs[:5]:
+                    name = await inp.get_attribute("name") or ""
+                    itype = await inp.get_attribute("type") or ""
+                    logger.info(f"    input name={name} type={itype}")
+
+            # 全リンクから検索っぽいURLを探す
+            links = await page.query_selector_all("a")
+            for link in links:
+                href = await link.get_attribute("href") or ""
+                if href and ('search' in href or 'jobs' in href or 'q=' in href or 'keyword' in href):
+                    txt = (await link.inner_text()).strip()[:30]
+                    logger.info(f"  検索リンク: {href[:80]} | {txt}")
+
+            await page.close()
+        save_html("kyujin_jobseeker_v5", html)
+
+        # 求人ボックス: 別のURLパターンを試す
+        kyujin_try = [
+            "https://xn--pckua2a7gp15o89zb.com/?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
+            "https://xn--pckua2a7gp15o89zb.com/search?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
+            "https://xn--pckua2a7gp15o89zb.com/job?q=%E8%AD%A6%E5%82%99&l=%E6%9D%B1%E4%BA%AC%E9%83%BD",
+            "https://xn--pckua2a7gp15o89zb.com/jobs/%E8%AD%A6%E5%82%99/%E6%9D%B1%E4%BA%AC%E9%83%BD/",
         ]
-        for url in kyujin_urls:
-            page, status, title, html = await get_page(context, url, sleep_sec=2)
-            logger.info(f"  {status} | {title[:70]} | {url[-50:]}")
-            if page and status == 200:
-                # 求人カードセレクタ
-                for sel in [".result-item", ".job-item", "article",
-                            "[class*='result']", "[class*='job']", "[class*='Item']",
-                            "[class*='card']", "[class*='list-item']"]:
-                    els = await page.query_selector_all(sel)
-                    if els and len(els) > 2:
-                        txt = await els[0].inner_text()
-                        logger.info(f"  '{sel}': {len(els)}件 | {txt[:150]}")
-                        break
-                # 会社名候補
-                for sel in ["[class*='company']", "[class*='corp']", ".job-company"]:
-                    els = await page.query_selector_all(sel)
-                    if els:
-                        txt = await els[0].inner_text()
-                        logger.info(f"  会社名 '{sel}': {len(els)}件 | {txt[:80]}")
-                        break
+        for url in kyujin_try:
+            page, status, title, html = await get_page(context, url, sleep_sec=1)
+            logger.info(f"  {status} | {title[:50]} | {url[-50:]}")
+            if page:
+                if status == 200:
+                    for sel in ["[class*='result']", "[class*='job']", "article",
+                                "[class*='list']", "[class*='card']"]:
+                        els = await page.query_selector_all(sel)
+                        if els and len(els) > 3:
+                            txt = (await els[0].inner_text()).strip()
+                            logger.info(f"    '{sel}': {len(els)}件 | {txt[:80]}")
+                            break
                 await page.close()
-            safe = re.sub(r'[^a-zA-Z0-9_]', '_', url[-40:])
-            save_html(f"kyujin_jobseeker_{safe}", html)
 
         await context.close()
         await browser.close()
-
     logger.info("===== 調査完了 =====")
 
 
