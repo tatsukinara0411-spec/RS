@@ -1,53 +1,51 @@
 import asyncio
 import logging
-import re
 from datetime import datetime
 
-from playwright.async_api import BrowserContext as Browser
+from playwright.async_api import BrowserContext
 
 from models.lead import Lead
 from scrapers.base import BaseScraper
-from utils.fingerprint import is_tokyo_23ward
 
 logger = logging.getLogger(__name__)
 
-# 求人BOX 業種コード (URLパラメータ調査値)
-INDUSTRY_PARAMS = {
-    "警備": "警備",
-    "運輸": "運輸・交通・物流・倉庫",
-    "外食": "外食・フード",
-}
+BASE_URL = "https://xn--pckua2a7gp15o89zb.com"
 
-BASE_URL = "https://kyujinbox.com"
+INDUSTRY_KEYWORDS = {
+    "警備": "警備",
+    "運輸": "運輸 ドライバー",
+    "外食": "飲食 外食",
+}
 
 
 class KyujinboxScraper(BaseScraper):
     site_name = "求人BOX"
 
-    async def scrape_industry(self, browser: Browser, industry: str) -> list[Lead]:
+    async def scrape_industry(self, context: BrowserContext, industry: str) -> list[Lead]:
         leads: list[Lead] = []
-        keyword = INDUSTRY_PARAMS.get(industry, industry)
+        keyword = INDUSTRY_KEYWORDS.get(industry, industry)
 
-        for page_num in range(1, 10):
+        for page_no in range(1, 8):
             if len(leads) >= 35:
                 break
 
-            url = (
-                f"{BASE_URL}/jobs?location=東京都&job={keyword}&page={page_num}"
-            )
-            page = await browser.new_page()
+            if page_no == 1:
+                url = f"{BASE_URL}/?q={keyword}&l=東京都"
+            else:
+                url = f"{BASE_URL}/?q={keyword}&l=東京都&page={page_no}"
+
+            page = await context.new_page()
             try:
                 await self.safe_goto(page, url)
+                await asyncio.sleep(1)
 
-                # 求人カード一覧を取得
-                cards = await page.query_selector_all(".result-item, .job-list-item, [class*='result']")
+                cards = await page.query_selector_all("[class*='result-item'], [class*='job-item'], [class*='ResultItem']")
+                if not cards:
+                    cards = await page.query_selector_all("article")
 
                 if not cards:
-                    # セレクタが変わった場合のフォールバック
-                    content = await page.content()
-                    if "件が見つかりました" not in content and "の求人" not in content:
-                        logger.warning(f"[求人BOX] ページに求人が見つかりません: {url}")
-                        break
+                    logger.warning(f"[求人BOX] カードなし: {url}")
+                    break
 
                 for card in cards:
                     if len(leads) >= 35:
@@ -56,8 +54,13 @@ class KyujinboxScraper(BaseScraper):
                     if lead:
                         leads.append(lead)
 
+                next_btn = await page.query_selector(f"a[href*='page={page_no + 1}'], .pagination a[rel='next']")
+                if not next_btn:
+                    break
+
             except Exception as e:
-                logger.error(f"[求人BOX] ページ取得エラー {url}: {e}")
+                logger.error(f"[求人BOX] エラー {url}: {e}")
+                break
             finally:
                 await page.close()
 
@@ -65,30 +68,29 @@ class KyujinboxScraper(BaseScraper):
 
     async def _parse_card(self, card, industry: str, source_url: str) -> Lead | None:
         try:
-            # 会社名
-            name_el = await card.query_selector(".job-name, .company-name, h2, h3, .name")
+            name_el = await card.query_selector(
+                "[class*='company'], [class*='corp'], [class*='employer'], .company-name"
+            )
             company_name = (await name_el.inner_text()).strip() if name_el else ""
-
-            # 住所
-            addr_el = await card.query_selector(".job-detail-location, .address, .location, [class*='location']")
-            address = (await addr_el.inner_text()).strip() if addr_el else ""
-
-            # 東京23区フィルタ
-            if not address or not is_tokyo_23ward(address):
-                return None
-
+            if not company_name:
+                h_el = await card.query_selector("h2, h3")
+                if h_el:
+                    company_name = (await h_el.inner_text()).strip()
             if not company_name:
                 return None
 
-            # 電話番号（求人サイトでは非表示が多い）
+            addr_el = await card.query_selector(
+                "[class*='location'], [class*='address'], [class*='place'], [class*='area']"
+            )
+            address = (await addr_el.inner_text()).strip() if addr_el else "東京都"
+            if not address:
+                address = "東京都"
+
             phone = ""
-            phone_el = await card.query_selector("a[href^='tel:'], .tel, .phone")
+            phone_el = await card.query_selector("a[href^='tel:']")
             if phone_el:
                 href = await phone_el.get_attribute("href")
-                if href and href.startswith("tel:"):
-                    phone = href.replace("tel:", "").strip()
-                else:
-                    phone = (await phone_el.inner_text()).strip()
+                phone = href.replace("tel:", "").strip() if href else ""
 
             return Lead(
                 company_name=company_name,

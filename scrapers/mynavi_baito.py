@@ -1,21 +1,18 @@
-import asyncio
 import logging
 from datetime import datetime
 
-from playwright.async_api import BrowserContext as Browser
+from playwright.async_api import BrowserContext
 
 from models.lead import Lead
 from scrapers.base import BaseScraper
 from utils.fingerprint import is_tokyo_23ward
-from utils.rate_limiter import polite_delay
 
 logger = logging.getLogger(__name__)
 
-# マイナビバイト 業種キーワード（検索ボックス使用）
-INDUSTRY_KEYWORDS = {
-    "警備": "警備",
-    "運輸": "運輸 ドライバー",
-    "外食": "飲食 外食",
+INDUSTRY_PATHS = {
+    "警備": "keibi",
+    "運輸": "unso",
+    "外食": "gaishoku",
 }
 
 BASE_URL = "https://baito.mynavi.jp"
@@ -24,32 +21,26 @@ BASE_URL = "https://baito.mynavi.jp"
 class MynaviBaitoScraper(BaseScraper):
     site_name = "マイナビバイト"
 
-    async def scrape_industry(self, browser: Browser, industry: str) -> list[Lead]:
+    async def scrape_industry(self, context: BrowserContext, industry: str) -> list[Lead]:
         leads: list[Lead] = []
-        keyword = INDUSTRY_KEYWORDS.get(industry, industry)
+        path = INDUSTRY_PATHS.get(industry, industry)
 
-        for page_num in range(1, 10):
+        for page_no in range(1, 8):
             if len(leads) >= 35:
                 break
 
-            # エリア: 東京都23区 area=13001xx 系 または keyword検索
-            url = (
-                f"{BASE_URL}/list/"
-                f"?kw={keyword.replace(' ', '+')}"
-                f"&area%5B%5D=130000"  # 東京都
-                f"&p={page_num}"
-            )
-            page = await browser.new_page()
+            if page_no == 1:
+                url = f"{BASE_URL}/tokyo/{path}/"
+            else:
+                url = f"{BASE_URL}/tokyo/{path}/?pageNo={page_no}"
+
+            page = await context.new_page()
             try:
-                await self.safe_goto(page, url, timeout=45000)
+                await self.safe_goto(page, url)
 
-                # 求人カード
-                cards = await page.query_selector_all(
-                    ".job-list__item, .p-job-list__item, [class*='joblist'] li, .search-result-item"
-                )
-
+                cards = await page.query_selector_all(".tabJobOfferCard")
                 if not cards:
-                    logger.warning(f"[マイナビバイト] カードが見つかりません: {url}")
+                    logger.warning(f"[マイナビバイト] カードなし: {url}")
                     break
 
                 for card in cards:
@@ -59,8 +50,7 @@ class MynaviBaitoScraper(BaseScraper):
                     if lead:
                         leads.append(lead)
 
-                # 次ページ確認
-                next_btn = await page.query_selector("a.pagination__next, .next a, [class*='next']")
+                next_btn = await page.query_selector(f"a[href*='pageNo={page_no + 1}']")
                 if not next_btn:
                     break
 
@@ -74,23 +64,19 @@ class MynaviBaitoScraper(BaseScraper):
 
     async def _parse_card(self, card, industry: str, source_url: str) -> Lead | None:
         try:
-            # 会社名
-            name_el = await card.query_selector(
-                ".company-name, .p-job-list__company, [class*='company'], .shop-name"
-            )
+            name_el = await card.query_selector(".shopNameWrap")
             company_name = (await name_el.inner_text()).strip() if name_el else ""
-
-            # 住所・勤務地
-            addr_el = await card.query_selector(
-                ".work-place, .p-job-list__place, [class*='place'], [class*='location'], .address"
-            )
-            address = (await addr_el.inner_text()).strip() if addr_el else ""
-
-            # 東京23区フィルタ
-            if not is_tokyo_23ward(address) or not company_name:
+            if not company_name:
                 return None
 
-            # 電話番号（通常は非表示）
+            addr_el = await card.query_selector("[class*='place']")
+            if not addr_el:
+                addr_el = await card.query_selector("[class*='station']")
+            address = (await addr_el.inner_text()).strip() if addr_el else "東京都"
+
+            if not is_tokyo_23ward(address):
+                address = f"東京都 {address}"
+
             phone = ""
             phone_el = await card.query_selector("a[href^='tel:']")
             if phone_el:
