@@ -25,8 +25,8 @@ class MynaviBaitoScraper(BaseScraper):
         leads: list[Lead] = []
         path = INDUSTRY_PATHS.get(industry, industry)
 
-        for page_no in range(1, 8):
-            if len(leads) >= 35:
+        for page_no in range(1, 12):
+            if len(leads) >= self.per_industry:
                 break
 
             if page_no == 1:
@@ -44,7 +44,7 @@ class MynaviBaitoScraper(BaseScraper):
                     break
 
                 for card in cards:
-                    if len(leads) >= 35:
+                    if len(leads) >= self.per_industry:
                         break
                     lead = await self._parse_card(card, industry, url)
                     if lead:

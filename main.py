@@ -14,7 +14,7 @@ from playwright.async_api import async_playwright
 from scrapers.mynavi_baito import MynaviBaitoScraper
 from scrapers.en_engage import EnEngageScraper
 from scrapers.kyujinbox import KyujinboxScraper
-from storage.database import init_db, deduplicate, mark_seen
+from storage.database import init_db, deduplicate, mark_seen_pair
 from storage.sheets import write_leads
 from models.lead import Lead
 from utils.credentials import load_service_account_info, CredentialsError
@@ -77,30 +77,42 @@ async def run_scrape(dry_run: bool = False):
         tasks = [scraper.scrape(context) for scraper in scrapers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        # 結果集約
+        all_leads: list[Lead] = []
+        site_names = ["マイナビバイト", "enゲージ", "求人BOX"]
+        for site, result in zip(site_names, results):
+            if isinstance(result, Exception):
+                logger.error(f"[{site}] スクレイピング失敗: {result}")
+            else:
+                logger.info(f"[{site}] 取得: {len(result)}件")
+                all_leads.extend(result)
+
+        # 重複除外(詳細補完の無駄打ちを防ぐため先に実施)
+        unique_leads = deduplicate(all_leads)
+        logger.info(f"重複除外後: {len(unique_leads)}件 (元: {len(all_leads)}件)")
+
+        # 重複除外キーを補完前の住所で控えておく
+        dedup_keys = [(l.company_name, l.address, l.collected_at, l.source_site) for l in unique_leads]
+
+        # 詳細ページから電話番号・住所を補完(対応サイトのみ)
+        for scraper in scrapers:
+            site_leads = [l for l in unique_leads if l.source_site == scraper.site_name]
+            if site_leads:
+                try:
+                    await scraper.enrich(context, site_leads)
+                except Exception as e:
+                    logger.error(f"[{scraper.site_name}] 詳細補完でエラー: {e}")
+
         await context.close()
         await browser.close()
-
-    # 結果集約
-    all_leads: list[Lead] = []
-    site_names = ["マイナビバイト", "enゲージ", "求人BOX"]
-    for site, result in zip(site_names, results):
-        if isinstance(result, Exception):
-            logger.error(f"[{site}] スクレイピング失敗: {result}")
-        else:
-            logger.info(f"[{site}] 取得: {len(result)}件")
-            all_leads.extend(result)
-
-    # 重複除外
-    unique_leads = deduplicate(all_leads)
-    logger.info(f"重複除外後: {len(unique_leads)}件 (元: {len(all_leads)}件)")
 
     # スプレッドシートへ書き込み
     url = write_leads(unique_leads, dry_run=dry_run)
 
-    # DBに記録
+    # DBに記録(補完前の住所をキーにする)
     if not dry_run:
-        for lead in unique_leads:
-            mark_seen(lead)
+        for name, addr, collected_at, source_site in dedup_keys:
+            mark_seen_pair(name, addr, collected_at, source_site)
 
     logger.info(f"=== 完了: {len(unique_leads)}件を書き込みました ===")
     if url and url != "dry_run":
