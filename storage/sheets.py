@@ -47,6 +47,17 @@ def _get_or_create_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:
     ss = client.create(SPREADSHEET_TITLE)
     logger.info(f"スプレッドシートを新規作成しました: {ss.url}")
     print(f"\n✅ スプレッドシートURL: {ss.url}\n")
+
+    # サービスアカウントが作成したシートは共有しないと人間が開けない
+    share_email = os.environ.get("GOOGLE_SHARE_EMAIL")
+    if share_email:
+        ss.share(share_email, perm_type="user", role="writer", notify=True)
+        logger.info(f"{share_email} に編集権限を付与しました")
+    else:
+        logger.warning(
+            "GOOGLE_SHARE_EMAIL が未設定です。作成されたスプレッドシートはサービスアカウント"
+            "しか開けません。シークレットに自分のGmailアドレスを登録してください。"
+        )
     return ss
 
 
