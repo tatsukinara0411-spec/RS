@@ -1,4 +1,3 @@
-import json
 import os
 import logging
 from datetime import datetime
@@ -7,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from models.lead import Lead
+from utils.credentials import load_service_account_info
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def _get_client() -> gspread.Client:
     creds_path = os.environ.get("GOOGLE_CREDS_PATH", "./credentials/service_account.json")
 
     if creds_json:
-        info = json.loads(creds_json)
+        info = load_service_account_info(creds_json)
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     else:
         creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
@@ -47,6 +47,17 @@ def _get_or_create_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:
     ss = client.create(SPREADSHEET_TITLE)
     logger.info(f"スプレッドシートを新規作成しました: {ss.url}")
     print(f"\n✅ スプレッドシートURL: {ss.url}\n")
+
+    # サービスアカウントが作成したシートは共有しないと人間が開けない
+    share_email = os.environ.get("GOOGLE_SHARE_EMAIL")
+    if share_email:
+        ss.share(share_email, perm_type="user", role="writer", notify=True)
+        logger.info(f"{share_email} に編集権限を付与しました")
+    else:
+        logger.warning(
+            "GOOGLE_SHARE_EMAIL が未設定です。作成されたスプレッドシートはサービスアカウント"
+            "しか開けません。シークレットに自分のGmailアドレスを登録してください。"
+        )
     return ss
 
 

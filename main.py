@@ -17,6 +17,7 @@ from scrapers.kyujinbox import KyujinboxScraper
 from storage.database import init_db, deduplicate, mark_seen
 from storage.sheets import write_leads
 from models.lead import Lead
+from utils.credentials import load_service_account_info, CredentialsError
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -27,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 async def run_scrape(dry_run: bool = False):
     logger.info("=== テレアポリード収集 開始 ===")
+
+    # 認証情報の不備はスクレイピング(約10分)の前に検知して即終了する
+    if not dry_run and os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") is not None:
+        load_service_account_info(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+
     init_db()
 
     semaphore = asyncio.Semaphore(int(os.environ.get("SCRAPE_CONCURRENCY", "2")))
@@ -109,7 +115,11 @@ def main():
     parser.add_argument("--run-now", action="store_true", help="即時実行")
     args = parser.parse_args()
 
-    count = asyncio.run(run_scrape(dry_run=args.dry_run))
+    try:
+        count = asyncio.run(run_scrape(dry_run=args.dry_run))
+    except CredentialsError as err:
+        print(f"\n❌ Google認証情報エラー\n\n{err}\n", file=sys.stderr)
+        sys.exit(1)
     sys.exit(0 if count >= 0 else 1)
 
 
