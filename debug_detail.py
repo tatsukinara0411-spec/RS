@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""詳細ページ調査 v2: 電話番号・住所の取得方法と正しいカードセレクタを特定する"""
+"""詳細ページ調査 v3: 電話番号ボタンのクリック・求人BOX正しい検索URL・enゲージ詳細URL"""
 import asyncio
 import glob as _glob
 import re
@@ -11,151 +11,154 @@ UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
-INTEREST = re.compile(r"(〒|東京都.{2,30}(区|市)|電話|TEL|tel)")
-
-
-async def dump_detail(page, label: str):
-    print(f"\n===== {label}: {page.url}")
-    tels = await page.eval_on_selector_all(
-        "a[href^='tel:']", "els => els.map(e => e.getAttribute('href') + ' | ' + e.innerText.trim())"
-    )
-    print(f"[tel:リンク] {tels[:5]}")
-
-    pairs = await page.evaluate(
-        """() => {
-            const out = [];
-            document.querySelectorAll('dt').forEach(dt => {
-                const dd = dt.nextElementSibling;
-                if (dd) out.push('DT:' + dt.innerText.trim().slice(0,16) + ' => ' + dd.innerText.trim().slice(0,100));
-            });
-            document.querySelectorAll('th').forEach(th => {
-                const td = th.parentElement && th.parentElement.querySelector('td');
-                if (td) out.push('TH:' + th.innerText.trim().slice(0,16) + ' => ' + td.innerText.trim().slice(0,100));
-            });
-            return out;
-        }"""
-    )
-    print(f"[dt/dd th/td 全{len(pairs)}組]")
-    for h in pairs[:20]:
-        print("   ", h.replace("\n", " "))
-
-    body = await page.evaluate("() => document.body.innerText")
-    lines = [l.strip() for l in body.split("\n") if INTEREST.search(l)]
-    print(f"[本文の住所/電話っぽい行] {len(lines)}行:")
-    for l in lines[:12]:
-        print("   ", l[:110])
+PHONE_RE = re.compile(r"0\d{1,4}[-(]?\d{1,4}[-)]?\d{3,4}")
+ADDR_RE = re.compile(r"(〒\d{3}-?\d{4}|東京都.{1,40}\d)")
 
 
 async def investigate_mynavi(context):
-    print("\n########## マイナビバイト ##########")
+    print("\n########## マイナビバイト: 電話番号を表示ボタン ##########")
     page = await context.new_page()
     await page.goto("https://baito.mynavi.jp/tokyo/keibi/", wait_until="domcontentloaded")
     await asyncio.sleep(3)
-    cards = await page.query_selector_all(".tabJobOfferCard")
-    print(f"カード数: {len(cards)}")
-    links = []
-    for card in cards[:4]:
-        hrefs = await card.eval_on_selector_all("a[href]", "els => els.map(e => e.getAttribute('href'))")
-        for h in hrefs:
-            if h and re.search(r"/cl-\d+/job-\d+", h):
-                links.append(h)
-                break
-    print("詳細リンク:", links)
+    hrefs = await page.eval_on_selector_all(
+        ".tabJobOfferCard a[href]", "els => els.map(e => e.getAttribute('href'))"
+    )
+    links = [h for h in hrefs if h and re.search(r"/cl-\d+/job-\d+", h)]
     await page.close()
 
-    for href in links[:2]:
-        url = href if href.startswith("http") else "https://baito.mynavi.jp" + href
+    for href in dict.fromkeys(links)[:2] if isinstance(links, dict) else list(dict.fromkeys(links))[:2]:
+        url = "https://baito.mynavi.jp" + href
         p = await context.new_page()
         try:
             await p.goto(url, wait_until="domcontentloaded")
             await asyncio.sleep(3)
-            await dump_detail(p, "マイナビ詳細")
+
+            btns = await p.query_selector_all("text=電話番号を表示")
+            print(f"\n===== {url}")
+            print(f"電話番号を表示ボタン: {len(btns)}個")
+            if btns:
+                try:
+                    await btns[0].click()
+                    await asyncio.sleep(2)
+                except Exception as e:
+                    print("クリック失敗:", e)
+
+            tels = await p.eval_on_selector_all(
+                "a[href^='tel:']", "els => els.map(e => e.getAttribute('href'))"
+            )
+            print("tel:リンク:", tels[:5])
+            body = await p.evaluate("() => document.body.innerText")
+            phones = PHONE_RE.findall(body)
+            print("本文の電話番号らしき文字列:", list(dict.fromkeys(phones))[:8])
+            addrs = [l.strip()[:90] for l in body.split("\n") if ADDR_RE.search(l)]
+            print("番地まである住所らしき行:", addrs[:6])
+            # 勤務地ラベル周辺
+            sec = await p.evaluate(
+                """() => {
+                    const out = [];
+                    document.querySelectorAll('h2,h3,h4,dt,th,div,span').forEach(el => {
+                        const t = (el.innerText||'').trim();
+                        if (t === '勤務地' || t === '住所' || t === '勤務地住所') {
+                            const sib = el.nextElementSibling || el.parentElement;
+                            if (sib) out.push(t + ' => ' + sib.innerText.trim().slice(0,120));
+                        }
+                    });
+                    return out.slice(0,6);
+                }"""
+            )
+            print("勤務地/住所ラベル周辺:", sec)
         except Exception as e:
-            print("詳細ページエラー:", e)
+            print("エラー:", e)
         finally:
             await p.close()
 
 
 async def investigate_kyujinbox(context):
-    print("\n########## 求人BOX ##########")
-    page = await context.new_page()
-    await page.goto("https://xn--pckua2a7gp15o89zb.com/?q=警備&l=東京都", wait_until="domcontentloaded")
-    await asyncio.sleep(3)
-
-    # 検索結果の本命カードを特定するため、主要ブロックのクラス名を一覧表示
-    classes = await page.evaluate(
-        """() => {
-            const seen = {};
-            document.querySelectorAll('main *, body *').forEach(el => {
-                const c = el.className;
-                if (typeof c === 'string' && /job|Job|cassette|Cassette|result|Result|card|Card/.test(c)) {
-                    c.split(/\\s+/).forEach(cls => { if (cls) seen[cls] = (seen[cls]||0)+1; });
-                }
-            });
-            return Object.entries(seen).sort((a,b)=>b[1]-a[1]).slice(0,30);
-        }"""
-    )
-    print("クラス名出現数:", classes)
-
-    # 候補セレクタごとの件数と、最初のカードの中身
-    for sel in [".p-jobCassette", "[class*='jobCassette']", ".p-result_card", "[class*='searchResult']",
-                "section[class*='job']", "li[class*='job']", "article"]:
-        els = await page.query_selector_all(sel)
-        if els:
-            first_text = (await els[0].inner_text())[:120].replace("\n", " | ")
-            print(f"セレクタ {sel}: {len(els)}件 | 1件目: {first_text}")
-
-    # 本命らしきカードから詳細リンクを取り直す
-    hrefs = await page.eval_on_selector_all(
-        "a[href*='/jb/'], a[href*='/jbi/']",
-        "els => els.slice(0,10).map(e => e.getAttribute('href'))"
-    )
-    print("ページ内 /jb/ /jbi/ リンク:", hrefs[:10])
-    await page.close()
-
-    if hrefs:
-        url = hrefs[0] if hrefs[0].startswith("http") else "https://xn--pckua2a7gp15o89zb.com" + hrefs[0]
-        p = await context.new_page()
+    print("\n########## 求人BOX: 正しい検索URL ##########")
+    for url in [
+        "https://xn--pckua2a7gp15o89zb.com/警備の仕事-東京都",
+        "https://xn--pckua2a7gp15o89zb.com/警備の仕事?l=東京都",
+    ]:
+        page = await context.new_page()
         try:
-            await p.goto(url, wait_until="domcontentloaded")
+            await page.goto(url, wait_until="domcontentloaded")
             await asyncio.sleep(3)
-            await dump_detail(p, "求人BOX詳細(検索結果側)")
+            print(f"\n----- {url}")
+            print("最終URL:", page.url)
+            title = await page.title()
+            print("タイトル:", title[:60])
+
+            classes = await page.evaluate(
+                """() => {
+                    const seen = {};
+                    document.querySelectorAll('section,li,article,div').forEach(el => {
+                        const c = el.className;
+                        if (typeof c === 'string' && /p-job|p-result|p-search|cassette/i.test(c)) {
+                            c.split(/\\s+/).forEach(cls => { if (cls) seen[cls] = (seen[cls]||0)+1; });
+                        }
+                    });
+                    return Object.entries(seen).sort((a,b)=>b[1]-a[1]).slice(0,20);
+                }"""
+            )
+            print("クラス名出現数:", classes)
+
+            # 検索結果カードらしきものの中身を1件
+            for sel in [".p-jobCassette", "[class*='p-job_'], [class*='p-job ']", "section[class*='job']"]:
+                els = await page.query_selector_all(sel)
+                if els:
+                    t = (await els[0].inner_text())[:200].replace("\n", " | ")
+                    print(f"セレクタ {sel}: {len(els)}件 | 1件目: {t}")
+                    hrefs = await els[0].eval_on_selector_all("a[href]", "els => els.map(e => e.getAttribute('href'))")
+                    print("  リンク:", hrefs[:3])
+                    break
         except Exception as e:
-            print("詳細ページエラー:", e)
+            print("エラー:", e)
         finally:
-            await p.close()
+            await page.close()
 
 
 async def investigate_engage(context):
-    print("\n########## enゲージ ##########")
+    print("\n########## enゲージ: work_idから詳細ページ ##########")
     page = await context.new_page()
     await page.goto("https://en-gage.net/user/search/?searchKey=警備&pref=13", wait_until="domcontentloaded")
     await asyncio.sleep(10)
-
-    rows = await page.query_selector_all("li.row.row--company, [class*='row--company'], .md_card")
-    print(f"カード数: {len(rows)}")
-    if rows:
-        html = await rows[0].evaluate("el => el.outerHTML.slice(0, 900)")
-        print("1件目のHTML(先頭900字):")
-        print(html)
-        ancestor = await rows[0].evaluate("el => { const a = el.closest('a'); return a ? a.getAttribute('href') : '(aの祖先なし)'; }")
-        print("祖先のaタグ:", ancestor)
-
-    # ページ全体のリンクから企業/求人ページらしきもの
     hrefs = await page.eval_on_selector_all(
-        "a[href]",
-        """els => {
-            const out = [];
-            for (const e of els) {
-                const h = e.getAttribute('href') || '';
-                if (/company|work|saiyo|recruit/.test(h)) out.push(h);
-                if (out.length >= 10) break;
-            }
-            return out;
-        }"""
+        "a[href*='work_id=']", "els => els.slice(0,5).map(e => e.getAttribute('href'))"
     )
-    print("企業/求人っぽいリンク:", hrefs)
+    ids = []
+    for h in hrefs:
+        m = re.search(r"work_id=(\d+)", h or "")
+        if m:
+            ids.append(m.group(1))
+    ids = list(dict.fromkeys(ids))
+    print("work_id:", ids[:5])
     await page.close()
+
+    for wid in ids[:2]:
+        for pattern in [
+            f"https://en-gage.net/user/work/detail/?work_id={wid}",
+        ]:
+            p = await context.new_page()
+            try:
+                await p.goto(pattern, wait_until="domcontentloaded")
+                await asyncio.sleep(8)
+                print(f"\n----- {pattern}")
+                print("最終URL:", p.url)
+                title = await p.title()
+                print("タイトル:", title[:80])
+                body = await p.evaluate("() => document.body.innerText")
+                phones = PHONE_RE.findall(body)
+                print("電話番号らしき文字列:", list(dict.fromkeys(phones))[:6])
+                # 会社名・所在地・住所まわり
+                lines = body.split("\n")
+                for i, l in enumerate(lines):
+                    if re.search(r"(会社名|所在地|住所|企業情報|勤務地)", l.strip()[:6]):
+                        ctx_lines = " / ".join(x.strip()[:60] for x in lines[i:i+3])
+                        print("  ", ctx_lines[:150])
+            except Exception as e:
+                print("エラー:", e)
+            finally:
+                await p.close()
 
 
 async def main():
