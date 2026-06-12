@@ -11,7 +11,7 @@ from utils.rate_limiter import polite_delay
 logger = logging.getLogger(__name__)
 
 INDUSTRIES = ["警備", "運輸", "外食"]
-TARGET_COUNT = 100
+TARGET_COUNT = 200
 
 
 class BaseScraper(ABC):
@@ -19,20 +19,24 @@ class BaseScraper(ABC):
 
     def __init__(self, semaphore: asyncio.Semaphore):
         self.semaphore = semaphore
+        self.per_industry = TARGET_COUNT // len(INDUSTRIES)
 
     @abstractmethod
     async def scrape_industry(self, context: BrowserContext, industry: str) -> list[Lead]:
         ...
 
+    async def enrich(self, context: BrowserContext, leads: list[Lead]) -> None:
+        """詳細ページから電話番号・住所を補完する(対応サイトのみ上書き実装)"""
+        return
+
     async def scrape(self, context: BrowserContext) -> list[Lead]:
         all_leads: list[Lead] = []
-        per_industry = TARGET_COUNT // len(INDUSTRIES)
 
         for industry in INDUSTRIES:
             try:
                 logger.info(f"[{self.site_name}] {industry} スクレイピング開始")
                 leads = await self.scrape_industry(context, industry)
-                leads = leads[:per_industry]
+                leads = leads[:self.per_industry]
                 all_leads.extend(leads)
                 logger.info(f"[{self.site_name}] {industry}: {len(leads)}件取得")
             except Exception as e:

@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from datetime import datetime
 
@@ -6,7 +7,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from models.lead import Lead
-from utils.credentials import load_service_account_info
+from utils.credentials import load_service_account_info, CredentialsError
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,38 @@ def _get_client() -> gspread.Client:
     return gspread.authorize(creds)
 
 
+def _normalize_spreadsheet_id(raw: str) -> str:
+    """URL全体が貼られていてもIDだけを取り出す。前後の空白や引用符も除去する。"""
+    raw = raw.strip().strip("\"'").strip()
+    m = re.search(r"/d/([A-Za-z0-9_-]{20,})", raw)
+    if m:
+        return m.group(1)
+    return raw
+
+
 def _get_or_create_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:
-    spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID")
+    spreadsheet_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "").strip()
     if spreadsheet_id:
-        return client.open_by_key(spreadsheet_id)
+        sid = _normalize_spreadsheet_id(spreadsheet_id)
+        try:
+            return client.open_by_key(sid)
+        except gspread.SpreadsheetNotFound as err:
+            raise CredentialsError(
+                "GOOGLE_SPREADSHEET_ID のスプレッドシートが見つかりません。\n"
+                f"  指定されたID: 長さ{len(sid)}文字 (先頭4文字: {sid[:4]})\n"
+                "  対処法:\n"
+                "  1. スプレッドシートをブラウザで開き、アドレス欄のURL全体をコピー\n"
+                "  2. GitHubのシークレット GOOGLE_SPREADSHEET_ID にURLをまるごと貼り付けて更新\n"
+                "     (IDの切り出しはプログラムが自動で行います)"
+            ) from err
+        except gspread.exceptions.APIError as err:
+            if "403" in str(err) or "PERMISSION_DENIED" in str(err):
+                raise CredentialsError(
+                    "スプレッドシートを開く権限がありません。\n"
+                    "  スプレッドシート右上の「共有」で、サービスアカウントの client_email\n"
+                    "  (〇〇@〇〇.iam.gserviceaccount.com) を「編集者」として追加してください。"
+                ) from err
+            raise
 
     # 既存のスプレッドシートを検索
     try:

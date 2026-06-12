@@ -1,0 +1,30 @@
+name: 詳細ページ調査（デバッグ）
+
+on:
+  push:
+    branches:
+      - claude/jolly-darwin-c4qny2
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: pip install -r requirements.txt
+
+      - run: playwright install chromium --with-deps
+
+      - name: ドライラン（シート書き込みなしで全パイプライン検証）
+        env:
+          PLAYWRIGHT_HEADLESS: "true"
+          LOG_LEVEL: "INFO"
+        run: python main.py --run-now --dry-run

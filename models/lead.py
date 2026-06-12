@@ -10,6 +10,7 @@ class Lead(BaseModel):
     industry: str
     source_site: str
     source_url: str = ""
+    detail_url: str = ""
     collected_at: str = ""
 
     def model_post_init(self, __context):

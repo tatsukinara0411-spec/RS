@@ -32,11 +32,17 @@ def is_seen(company_name: str, address: str) -> bool:
 
 
 def mark_seen(lead: Lead):
-    fp = compute_fingerprint(lead.company_name, lead.address)
+    mark_seen_pair(lead.company_name, lead.address, lead.collected_at, lead.source_site)
+
+
+def mark_seen_pair(company_name: str, address: str, collected_at: str, source_site: str):
+    """重複除外キーは詳細補完前の(会社名, 住所)で記録する。
+    補完で住所が変わると別会社と誤認して毎週重複してしまうため。"""
+    fp = compute_fingerprint(company_name, address)
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "INSERT OR IGNORE INTO seen_companies (fingerprint, company_name, first_seen_at, source_site) VALUES (?, ?, ?, ?)",
-        (fp, lead.company_name, lead.collected_at, lead.source_site),
+        (fp, company_name, collected_at, source_site),
     )
     conn.commit()
     conn.close()

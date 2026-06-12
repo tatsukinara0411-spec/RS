@@ -25,8 +25,8 @@ class EnEngageScraper(BaseScraper):
         leads: list[Lead] = []
         keyword = INDUSTRY_KEYWORDS.get(industry, industry)
 
-        for page_no in range(1, 8):
-            if len(leads) >= 35:
+        for page_no in range(1, 12):
+            if len(leads) >= self.per_industry:
                 break
 
             if page_no == 1:
@@ -61,7 +61,7 @@ class EnEngageScraper(BaseScraper):
                     break
 
                 for row in rows:
-                    if len(leads) >= 35:
+                    if len(leads) >= self.per_industry:
                         break
                     lead = await self._parse_row(row, industry, url)
                     if lead:
