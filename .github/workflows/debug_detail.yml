@@ -1,6 +1,9 @@
 name: 詳細ページ調査（デバッグ）
 
 on:
+  push:
+    branches:
+      - claude/jolly-darwin-c4qny2
   workflow_dispatch:
 
 jobs:
