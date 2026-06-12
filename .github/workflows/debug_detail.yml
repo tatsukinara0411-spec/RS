@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - claude/jolly-darwin-c4qny2
+      - claude/places-api-enrichment
   workflow_dispatch:
 
 jobs:
@@ -27,4 +28,5 @@ jobs:
         env:
           PLAYWRIGHT_HEADLESS: "true"
           LOG_LEVEL: "INFO"
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: python main.py --run-now --dry-run

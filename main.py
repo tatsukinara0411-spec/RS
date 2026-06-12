@@ -18,6 +18,7 @@ from storage.database import init_db, deduplicate, mark_seen_pair
 from storage.sheets import write_leads
 from models.lead import Lead
 from utils.credentials import load_service_account_info, CredentialsError
+from utils.places import enrich_with_places
 
 logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO"),
@@ -105,6 +106,9 @@ async def run_scrape(dry_run: bool = False):
 
         await context.close()
         await browser.close()
+
+    # Googleマップから電話番号・住所を補完(電話番号が未取得のリードのみ)
+    await enrich_with_places(unique_leads)
 
     # スプレッドシートへ書き込み
     url = write_leads(unique_leads, dry_run=dry_run)
