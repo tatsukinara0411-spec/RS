@@ -1,4 +1,3 @@
-import json
 import os
 import logging
 from datetime import datetime
@@ -7,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from models.lead import Lead
+from utils.credentials import load_service_account_info
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def _get_client() -> gspread.Client:
     creds_path = os.environ.get("GOOGLE_CREDS_PATH", "./credentials/service_account.json")
 
     if creds_json:
-        info = json.loads(creds_json)
+        info = load_service_account_info(creds_json)
         creds = Credentials.from_service_account_info(info, scopes=SCOPES)
     else:
         creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
