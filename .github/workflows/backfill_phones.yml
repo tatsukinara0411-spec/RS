@@ -1,0 +1,32 @@
+name: 電話番号補填（既存タブ）
+
+on:
+  workflow_dispatch:
+    inputs:
+      tab_name:
+        description: '補填対象のタブ名（例: 2026-W23）'
+        required: true
+        default: '2026-W23'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: pip install -r requirements.txt
+
+      - name: 電話番号補填実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          TAB_NAME: ${{ inputs.tab_name }}
+        run: python tools/backfill_phones.py

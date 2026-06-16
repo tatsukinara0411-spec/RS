@@ -125,7 +125,6 @@ async def enrich_with_places(leads: list, concurrency: int = 5) -> int:
     async with aiohttp.ClientSession() as session:
         await asyncio.gather(*[_enrich_one(session, l) for l in targets])
 
-    # 応答ステータスの内訳をログ出力（原因特定用）
     logger.info(f"[Places] 応答ステータス内訳: {dict(status_counter)}")
     if first_error:
         logger.warning(
