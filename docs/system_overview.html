@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テレアポリード収集システム 構成図</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Hiragino Sans', 'Meiryo', 'Segoe UI', sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+h1 {
+  text-align: center;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  letter-spacing: 0.04em;
+}
+.subtitle {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #8b949e;
+  margin-bottom: 28px;
+}
+
+/* ===== FLOW DIAGRAM ===== */
+.diagram {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ROW */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+}
+
+/* CARD */
+.card {
+  background: #161b22;
+  border: 1.5px solid #30363d;
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  min-width: 130px;
+  text-align: center;
+  user-select: none;
+}
+.card:hover {
+  transform: translateY(-3px);
+  border-color: var(--color);
+  box-shadow: 0 0 18px -4px var(--color);
+}
+.card.active {
+  border-color: var(--color);
+  box-shadow: 0 0 22px -4px var(--color);
+}
+
+.card-icon { font-size: 2rem; display: block; margin-bottom: 6px; }
+.card-name { font-size: 0.82rem; font-weight: 700; color: #e6edf3; line-height: 1.3; }
+.card-tag {
+  display: inline-block;
+  margin-top: 5px;
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color) 20%, transparent);
+  color: var(--color);
+  border: 1px solid color-mix(in srgb, var(--color) 40%, transparent);
+}
+
+/* DETAIL POPUP */
+.detail {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c2128;
+  border: 1.5px solid var(--color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  width: 260px;
+  z-index: 100;
+  text-align: left;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.detail.open { display: block; }
+.detail h3 { font-size: 0.82rem; color: var(--color); margin-bottom: 8px; font-weight: 700; }
+.detail p { font-size: 0.75rem; color: #8b949e; line-height: 1.6; }
+.detail ul { font-size: 0.75rem; color: #8b949e; line-height: 1.8; padding-left: 14px; }
+.detail .close-btn {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: none; color: #8b949e;
+  font-size: 1rem; cursor: pointer; line-height: 1;
+}
+
+/* ARROW */
+.arrow-down {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0;
+}
+.arrow-down .line {
+  width: 2px;
+  height: 22px;
+  background: linear-gradient(to bottom, #30363d, #58a6ff);
+  position: relative;
+}
+.arrow-down .head {
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #58a6ff;
+}
+.arrow-right {
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+}
+.arrow-right .line {
+  height: 2px;
+  width: 20px;
+  background: linear-gradient(to right, #30363d, #58a6ff);
+}
+.arrow-right .head {
+  width: 0; height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid #58a6ff;
+}
+
+/* BRACKET group */
+.group-label {
+  font-size: 0.68rem;
+  color: #8b949e;
+  text-align: center;
+  padding: 4px 0 8px;
+  letter-spacing: 0.08em;
+}
+
+/* DIVIDER */
+.section-divider {
+  width: 100%;
+  max-width: 960px;
+  margin: 2px auto;
+  border: none;
+  border-top: 1px dashed #21262d;
+}
+
+/* LEGEND */
+.legend {
+  max-width: 960px;
+  margin: 32px auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #8b949e;
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+/* COLORS */
+.c-orange { --color: #f0883e; }
+.c-blue   { --color: #58a6ff; }
+.c-purple { --color: #a371f7; }
+.c-cyan   { --color: #39c5cf; }
+.c-green  { --color: #3fb950; }
+.c-pink   { --color: #ec6cb9; }
+.c-yellow { --color: #d29922; }
+
+/* FLOW STEP NUMBERS */
+.step-badge {
+  position: absolute;
+  top: -10px; left: -10px;
+  width: 20px; height: 20px;
+  background: #58a6ff;
+  border-radius: 50%;
+  font-size: 0.6rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0d1117;
+}
+
+/* CONNECTOR LINES between source cards */
+.sources-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.converge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.converge-line {
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(to bottom, #30363d, #58a6ff);
+}
+
+/* DOUBLE ARROW (bidirectional) */
+.arrow-double {
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+}
+.arrow-double svg { display: block; }
+
+/* pulse animation for active data flow */
+@keyframes pulse-flow {
+  0%   { opacity: 0.3; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+.flowing .line { animation: pulse-flow 1.5s ease-in-out infinite; }
+
+/* Result banner */
+.result-banner {
+  max-width: 960px;
+  margin: 28px auto 0;
+  background: #0d2f0d;
+  border: 1px solid #3fb950;
+  border-radius: 10px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.result-banner .icon { font-size: 1.6rem; }
+.result-banner .text { font-size: 0.8rem; color: #8b949e; line-height: 1.6; }
+.result-banner .text strong { color: #3fb950; }
+
+@media (max-width: 600px) {
+  .card { min-width: 100px; padding: 10px 8px; }
+  .card-icon { font-size: 1.5rem; }
+  .card-name { font-size: 0.72rem; }
+  .detail { width: 220px; }
+}
+</style>
+</head>
+<body>
+
+<h1>🤖 テレアポリード収集システム 構成図</h1>
+<p class="subtitle">各コンポーネントをクリックすると詳しい説明が表示されます</p>
+
+<div class="diagram">
+
+  <!-- ===== ROW 0: AI Developer & Code Repo ===== -->
+  <div class="group-label">🛠 開発・管理レイヤー</div>
+  <div class="row">
+
+    <div class="card c-pink" onclick="toggle(this)">
+      <span class="card-icon">🤖</span>
+      <div class="card-name">Claude Code</div>
+      <span class="card-tag">AIアシスタント</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>Claude Code とは？</h3>
+        <p>Anthropic社が作ったAI（人工知能）。今回このシステムのコード（プログラム）を書いたのはこのAI。人間がやりたいことを日本語で伝えると、プログラムに変換してくれる。</p>
+      </div>
+    </div>
+
+    <div class="arrow-right flowing"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-orange" onclick="toggle(this)">
+      <span class="card-icon">🐙</span>
+      <div class="card-name">GitHub</div>
+      <span class="card-tag">コード保管庫</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>GitHub とは？</h3>
+        <p>プログラムのコードを保管・管理する場所（クラウド上の引き出し）。変更履歴が全部残るので、バグが出たときに前の状態に戻せる。</p>
+        <ul>
+          <li>コードのバージョン管理</li>
+          <li>プルリクエスト（変更の審査）</li>
+          <li>シークレット（パスワード類）の安全な保管</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arrow-right flowing"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-orange" onclick="toggle(this)">
+      <span class="card-icon">⚙️</span>
+      <div class="card-name">GitHub<br>Actions</div>
+      <span class="card-tag">自動実行エンジン</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>GitHub Actions とは？</h3>
+        <p>「毎週月曜8時になったら自動でプログラムを動かす」という指示を実行してくれる仕組み（タイマー付きロボット）。</p>
+        <ul>
+          <li>毎週月曜8:00 JST に自動起動</li>
+          <li>手動でも「ワークフローを実行」ボタンで起動可能</li>
+          <li>成功・失敗のログを記録</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="arrow-down flowing"><div class="line"></div><div class="head"></div></div>
+
+  <!-- ===== ROW 1: Sources ===== -->
+  <div class="group-label">📥 データ収集レイヤー（求人サイトから自動で情報を読み取る）</div>
+  <div class="row">
+
+    <div class="card c-blue" onclick="toggle(this)">
+      <span class="card-icon">🔵</span>
+      <div class="card-name">マイナビ<br>バイト</div>
+      <span class="card-tag">求人サイト</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>マイナビバイト</h3>
+        <p>大手求人サイト。警備・ドライバー・飲食カテゴリから東京都の求人を最大66件/カテゴリ収集。会社名・住所・業種を取得。</p>
+      </div>
+    </div>
+
+    <div class="card c-blue" onclick="toggle(this)">
+      <span class="card-icon">🟢</span>
+      <div class="card-name">enゲージ</div>
+      <span class="card-tag">求人サイト</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>enゲージ</h3>
+        <p>en Japan運営の求人サイト。同様に3カテゴリ×最大60件を収集。会社名・住所・業種を取得。</p>
+      </div>
+    </div>
+
+    <div class="card c-blue" onclick="toggle(this)">
+      <span class="card-icon">🟡</span>
+      <div class="card-name">求人BOX</div>
+      <span class="card-tag">求人サイト</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>求人BOX</h3>
+        <p>求人ボックス（カカクコム系）。3カテゴリ×最大66件収集。さらに<strong>詳細ページ</strong>も自動で訪問して電話番号・番地付き住所を取得（約30%で成功）。</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="arrow-down flowing"><div class="line"></div><div class="head"></div></div>
+
+  <!-- ===== ROW 2: Scraping Engine ===== -->
+  <div class="group-label">🔧 処理レイヤー</div>
+  <div class="row">
+
+    <div class="card c-purple" onclick="toggle(this)">
+      <span class="card-icon">🎭</span>
+      <div class="card-name">Playwright</div>
+      <span class="card-tag">ブラウザ自動操作</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>Playwright とは？</h3>
+        <p>目に見えないブラウザ（Chrome）を自動で操作するツール。人間が手でブラウザを開いてスクロールする作業を、プログラムが代わりに自動でやってくれる。</p>
+        <ul>
+          <li>3サイトを同時並列でアクセス</li>
+          <li>ページをスクロールして全情報を取得</li>
+          <li>求人BOXは詳細ページも自動クリック</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arrow-right flowing"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-purple" onclick="toggle(this)">
+      <span class="card-icon">🐍</span>
+      <div class="card-name">Python<br>プログラム</div>
+      <span class="card-tag">処理の頭脳</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>Python とは？</h3>
+        <p>このシステム全体の「頭脳」となるプログラミング言語。収集・整理・重複チェック・API呼び出し・シートへの書き込みを一括で制御している。</p>
+        <ul>
+          <li>3サイトのデータを束ねる</li>
+          <li>重複チェック（SQLite）</li>
+          <li>GoogleマップAPIへの問い合わせ</li>
+          <li>スプレッドシートへの書き込み</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arrow-right flowing"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-yellow" onclick="toggle(this)">
+      <span class="card-icon">🗃️</span>
+      <div class="card-name">SQLite DB</div>
+      <span class="card-tag">重複チェック</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>SQLite とは？</h3>
+        <p>小さなデータベース（メモ帳のような記録帳）。「先週もこの会社を収集した」という記録を残して、同じ会社が毎週重複してリストに入らないようにする。</p>
+        <ul>
+          <li>会社名＋住所のフィンガープリントを保存</li>
+          <li>すでに見た会社は自動でスキップ</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="arrow-down flowing"><div class="line"></div><div class="head"></div></div>
+
+  <!-- ===== ROW 3: Enrichment ===== -->
+  <div class="group-label">🔍 電話番号・住所補完レイヤー</div>
+  <div class="row">
+
+    <div class="card c-cyan" onclick="toggle(this)">
+      <span class="card-icon">🗺️</span>
+      <div class="card-name">Google<br>Maps API</div>
+      <span class="card-tag">電話番号・住所検索</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>Google Maps API とは？</h3>
+        <p>Googleマップに掲載されている会社情報をプログラムから検索できる「正式な窓口」（API）。会社名と住所を伝えると、電話番号と番地付き住所を返してくれる。</p>
+        <ul>
+          <li>求人サイトで電話番号が取れなかった会社を対象</li>
+          <li>2026-W23タブで442件中365件補填成功（82%）</li>
+          <li>月$200の無料枠内で収まる</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arrow-right" style="opacity:.4"><div class="line"></div><div class="head"></div></div>
+    <div style="font-size:0.7rem;color:#8b949e;text-align:center;width:80px">電話番号<br>＋住所を<br>補完</div>
+    <div class="arrow-right" style="transform:scaleX(-1);opacity:.4"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-purple" style="opacity:.5;pointer-events:none">
+      <span class="card-icon">🐍</span>
+      <div class="card-name">Python<br>プログラム</div>
+      <span class="card-tag">処理の頭脳</span>
+    </div>
+
+  </div>
+
+  <div class="arrow-down flowing"><div class="line"></div><div class="head"></div></div>
+
+  <!-- ===== ROW 4: Auth ===== -->
+  <div class="group-label">🔐 認証・出力レイヤー</div>
+  <div class="row">
+
+    <div class="card c-green" onclick="toggle(this)">
+      <span class="card-icon">🔑</span>
+      <div class="card-name">Google<br>サービスアカウント</div>
+      <span class="card-tag">認証キー</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>サービスアカウントとは？</h3>
+        <p>Googleスプレッドシートに書き込む許可を得るための「ロボット用のGoogleアカウント」。人間のアカウントではなくプログラム専用のアカウント。</p>
+        <ul>
+          <li>Google Cloud Console で発行</li>
+          <li>JSONキーファイルをGitHubのシークレットに登録</li>
+          <li>スプレッドシートに「編集者」として共有する必要あり</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="arrow-right flowing"><div class="line"></div><div class="head"></div></div>
+
+    <div class="card c-green" onclick="toggle(this)">
+      <span class="card-icon">📊</span>
+      <div class="card-name">Google<br>スプレッドシート</div>
+      <span class="card-tag">出力・最終成果物</span>
+      <div class="detail">
+        <button class="close-btn" onclick="close_(event,this)">✕</button>
+        <h3>Google スプレッドシートとは？</h3>
+        <p>Excelのオンライン版。収集した全リードが毎週新しいタブ（例：2026-W24）に自動で書き込まれる。電話番号・住所・会社名・業種が入った状態で届く。</p>
+        <ul>
+          <li>毎週月曜に新しいタブが自動作成</li>
+          <li>会社名・住所・電話番号・業種・収集日時</li>
+          <li>目標：約300件/週</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /diagram -->
+
+<!-- ===== RESULT BANNER ===== -->
+<div class="result-banner">
+  <div class="icon">✅</div>
+  <div class="text">
+    <strong>2026-W23 補填完了</strong>：442件中 <strong>365件（82%）</strong> に電話番号を追加しました。<br>
+    来週以降は収集時点でGoogleマップ補完まで自動で実行されます。
+  </div>
+</div>
+
+<!-- ===== LEGEND ===== -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#ec6cb9"></div>AI開発</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f0883e"></div>GitHub管理・自動化</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>データソース（求人サイト）</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a371f7"></div>処理エンジン</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>重複管理</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#39c5cf"></div>電話番号補完</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>認証・出力</div>
+</div>
+
+<p style="text-align:center;font-size:0.65rem;color:#484f58;margin-top:24px;">
+  カードをクリックすると詳細説明が表示されます
+</p>
+
+<script>
+function toggle(card) {
+  const detail = card.querySelector('.detail');
+  const isOpen = detail.classList.contains('open');
+  // close all
+  document.querySelectorAll('.detail.open').forEach(d => {
+    d.classList.remove('open');
+    d.closest('.card').classList.remove('active');
+  });
+  if (!isOpen) {
+    detail.classList.add('open');
+    card.classList.add('active');
+  }
+}
+function close_(e, btn) {
+  e.stopPropagation();
+  const detail = btn.closest('.detail');
+  const card = detail.closest('.card');
+  detail.classList.remove('open');
+  card.classList.remove('active');
+}
+// close on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.card')) {
+    document.querySelectorAll('.detail.open').forEach(d => {
+      d.classList.remove('open');
+      d.closest('.card').classList.remove('active');
+    });
+  }
+});
+</script>
+</body>
+</html>
