@@ -1,0 +1,28 @@
+name: GoogleマップAPI診断
+
+on:
+  push:
+    branches:
+      - claude/places-api-enrichment
+      - claude/fix-places-api
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: pip install aiohttp
+
+      - name: Places API 単体診断
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: python tools/check_places.py
