@@ -24,3 +24,7 @@
 ## 手動実行
 
 GitHub の「Actions」タブ → 「テレアポリード 週次収集」→「Run workflow」
+
+## 求人原稿 応募率診断ツール（MVP）
+
+`tools/job_diagnosis/index.html` をブラウザで開くと、求人原稿の応募率予測スコアと改善ポイントを診断できる。サーバー不要、Vercel等にそのままデプロイ可能。詳細は [docs/roadmap_2026-06.md](./docs/roadmap_2026-06.md) を参照。

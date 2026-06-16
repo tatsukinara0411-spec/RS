@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求人原稿 応募率診断ツール</title>
+<style>
+  :root { --accent: #2563eb; --bg: #f8fafc; --good: #16a34a; --warn: #d97706; --bad: #dc2626; }
+  * { box-sizing: border-box; }
+  body { font-family: "Hiragino Sans", "Yu Gothic", sans-serif; background: var(--bg); margin: 0; padding: 24px; color: #111827; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.sub { color: #6b7280; margin-top: 0; margin-bottom: 24px; font-size: 14px; }
+  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+  input, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 14px; font-family: inherit; }
+  textarea { min-height: 120px; resize: vertical; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { background: var(--accent); color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  .score-box { text-align: center; padding: 28px 20px; }
+  .score-num { font-size: 48px; font-weight: 800; }
+  .score-label { font-size: 14px; color: #6b7280; margin-top: 4px; }
+  .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #fff; margin-top: 8px; }
+  .badge.good { background: var(--good); }
+  .badge.warn { background: var(--warn); }
+  .badge.bad { background: var(--bad); }
+  ul.comments { list-style: none; padding: 0; margin: 0; }
+  ul.comments li { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+  ul.comments li.good { background: #ecfdf5; color: #065f46; }
+  ul.comments li.warn { background: #fffbeb; color: #92400e; }
+  ul.comments li.bad { background: #fef2f2; color: #991b1b; }
+  #result { display: none; }
+  footer { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>求人原稿 応募率診断ツール</h1>
+  <p class="sub">求人原稿の情報を入力すると、応募率の目安スコアと改善ポイントを自動診断します。</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="title">職種・タイトル</label>
+        <input id="title" type="text" placeholder="例：未経験OK！倉庫内軽作業スタッフ">
+      </div>
+      <div>
+        <label for="location">勤務地</label>
+        <input id="location" type="text" placeholder="例：東京都渋谷区">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="salaryMin">給与（下限・時給換算/円）</label>
+        <input id="salaryMin" type="number" placeholder="例：1200">
+      </div>
+      <div>
+        <label for="industryAvg">業界平均給与（時給換算/円・任意）</label>
+        <input id="industryAvg" type="number" placeholder="例：1300">
+      </div>
+    </div>
+    <label for="body">求人本文</label>
+    <textarea id="body" placeholder="仕事内容・待遇・応募資格などをそのまま貼り付けてください"></textarea>
+    <button onclick="diagnose()">診断する</button>
+  </div>
+
+  <div class="card" id="result">
+    <div class="score-box">
+      <div class="score-num" id="scoreNum">--</div>
+      <div class="score-label">応募率予測スコア（100点満点）</div>
+      <div class="badge" id="scoreBadge"></div>
+    </div>
+  </div>
+
+  <div class="card" id="commentsCard" style="display:none;">
+    <label style="margin-bottom:12px;">改善ポイント</label>
+    <ul class="comments" id="comments"></ul>
+  </div>
+
+  <footer>本ツールは簡易ルールベース診断です。実際の応募データに基づく最終判断は別途行ってください。</footer>
+</div>
+
+<script>
+function diagnose() {
+  const title = document.getElementById('title').value.trim();
+  const location = document.getElementById('location').value.trim();
+  const salaryMin = parseFloat(document.getElementById('salaryMin').value) || 0;
+  const industryAvg = parseFloat(document.getElementById('industryAvg').value) || 0;
+  const body = document.getElementById('body').value.trim();
+
+  let score = 50;
+  const comments = [];
+
+  // 1. タイトル評価
+  if (title.length === 0) {
+    score -= 15;
+    comments.push({ type: 'bad', text: '職種・タイトルが未入力です。求職者が検索でヒットしません。' });
+  } else if (/未経験|歓迎|急募|高収入|寮あり|日払い/.test(title)) {
+    score += 8;
+    comments.push({ type: 'good', text: '訴求力のあるキーワード（未経験OK等）がタイトルに含まれています。' });
+  } else {
+    score -= 5;
+    comments.push({ type: 'warn', text: 'タイトルに訴求キーワード（未経験OK・即日勤務可・寮あり等）がありません。追加を検討してください。' });
+  }
+  if (title.length > 35) {
+    score -= 5;
+    comments.push({ type: 'warn', text: 'タイトルが長すぎます（35文字超）。検索結果で途中省略される可能性があります。' });
+  }
+
+  // 2. 勤務地
+  if (location.length === 0) {
+    score -= 10;
+    comments.push({ type: 'bad', text: '勤務地が未入力です。エリア検索でヒットしません。' });
+  } else {
+    score += 5;
+  }
+
+  // 3. 給与競争力（業界平均との比較）
+  if (salaryMin > 0 && industryAvg > 0) {
+    const diffRate = (salaryMin - industryAvg) / industryAvg * 100;
+    if (diffRate >= 5) {
+      score += 15;
+      comments.push({ type: 'good', text: `給与が業界平均より${diffRate.toFixed(0)}%高く、競争力があります。` });
+    } else if (diffRate >= -5) {
+      score += 0;
+      comments.push({ type: 'warn', text: '給与は業界平均とほぼ同水準です。差別化要素を本文で補強してください。' });
+    } else {
+      score -= 15;
+      comments.push({ type: 'bad', text: `給与が業界平均より${Math.abs(diffRate).toFixed(0)}%低く、応募率に悪影響の可能性があります。` });
+    }
+  } else if (salaryMin === 0) {
+    score -= 10;
+    comments.push({ type: 'bad', text: '給与情報が未入力です。給与非公開は応募率を大きく下げる要因です。' });
+  }
+
+  // 4. 本文の充実度
+  const bodyLen = body.length;
+  if (bodyLen === 0) {
+    score -= 15;
+    comments.push({ type: 'bad', text: '求人本文が未入力です。仕事内容・待遇を具体的に記載してください。' });
+  } else if (bodyLen < 100) {
+    score -= 8;
+    comments.push({ type: 'warn', text: `本文が${bodyLen}文字と短めです。具体的な仕事内容・1日の流れ等を加えると応募率向上が期待できます。` });
+  } else if (bodyLen >= 100 && bodyLen <= 800) {
+    score += 8;
+    comments.push({ type: 'good', text: '本文の文字量は適切な範囲です。' });
+  } else {
+    score -= 3;
+    comments.push({ type: 'warn', text: '本文が長すぎる可能性があります（800文字超）。要点を絞ると離脱を防げます。' });
+  }
+
+  // 5. 福利厚生・働きやすさキーワード
+  const benefitKeywords = ['交通費', '社会保険', '研修', '駅近', '土日休み', 'シフト', '私服'];
+  const hitCount = benefitKeywords.filter(k => body.includes(k)).length;
+  if (hitCount >= 3) {
+    score += 7;
+    comments.push({ type: 'good', text: `福利厚生・働きやすさに関するキーワードが${hitCount}件含まれています。` });
+  } else if (hitCount === 0) {
+    score -= 5;
+    comments.push({ type: 'warn', text: '福利厚生（交通費・社会保険・研修制度等）の記載が見つかりません。追加すると安心感が高まります。' });
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('commentsCard').style.display = 'block';
+  document.getElementById('scoreNum').textContent = score;
+
+  const badge = document.getElementById('scoreBadge');
+  badge.className = 'badge';
+  if (score >= 70) {
+    badge.classList.add('good');
+    badge.textContent = '応募率：高い見込み';
+  } else if (score >= 45) {
+    badge.classList.add('warn');
+    badge.textContent = '応募率：標準的（改善余地あり）';
+  } else {
+    badge.classList.add('bad');
+    badge.textContent = '応募率：低い見込み（要改善）';
+  }
+
+  const ul = document.getElementById('comments');
+  ul.innerHTML = '';
+  comments.forEach(c => {
+    const li = document.createElement('li');
+    li.className = c.type;
+    li.textContent = c.text;
+    ul.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
