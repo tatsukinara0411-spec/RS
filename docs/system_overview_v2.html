@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テレアポリード収集システム</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f8f9fc;
+  --surface: #ffffff;
+  --text: #1a1d23;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --green: #10b981;
+  --orange: #f59e0b;
+  --pink: #ec4899;
+  --cyan: #06b6d4;
+  --red: #ef4444;
+}
+
+body {
+  font-family: 'Hiragino Sans', 'Meiryo', 'Noto Sans JP', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  padding: 0;
+}
+
+/* ===== HERO ===== */
+.hero {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #1e3a5f 100%);
+  color: white;
+  padding: 52px 24px 40px;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+  color: #c7d2fe;
+}
+.hero h1 {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: 800;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+.hero p {
+  font-size: 0.9rem;
+  color: #a5b4fc;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ===== SECTION ===== */
+.section {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 48px 20px;
+}
+.section + .section {
+  padding-top: 0;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.section-num {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 800;
+  color: white; flex-shrink: 0;
+}
+.section-head h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.section-head p {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ===== BEFORE / AFTER ===== */
+.before-after {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+}
+.ba-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+.ba-card.before { border-color: #fca5a5; }
+.ba-card.after  { border-color: #6ee7b7; }
+.ba-label {
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-bottom: 10px;
+}
+.before .ba-label { background: #fee2e2; color: #dc2626; }
+.after  .ba-label { background: #d1fae5; color: #059669; }
+.ba-icon { font-size: 2.2rem; display: block; margin-bottom: 8px; }
+.ba-title { font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; }
+.ba-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.7; }
+.ba-stat {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: inline-block;
+}
+.before .ba-stat { background: #fee2e2; color: #dc2626; }
+.after  .ba-stat { background: #d1fae5; color: #059669; }
+
+.arrow-ba {
+  font-size: 2rem;
+  color: var(--blue);
+  font-weight: 900;
+  text-align: center;
+}
+
+/* ===== FLOW ===== */
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.flow-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+.flow-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 19px; top: 48px;
+  width: 2px;
+  height: calc(100% - 8px);
+  background: linear-gradient(to bottom, #e5e7eb, #d1d5db);
+}
+.flow-num {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; font-weight: 800;
+  color: white; flex-shrink: 0;
+  position: relative; z-index: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.flow-body {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  flex: 1;
+  margin-bottom: 14px;
+}
+.flow-body h3 {
+  font-size: 0.88rem; font-weight: 700;
+  margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px;
+}
+.flow-body p {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.flow-tag {
+  font-size: 0.62rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.flow-result {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: #15803d;
+  font-weight: 600;
+}
+
+/* ===== APPS GRID ===== */
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.app-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.2s ease;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+.app-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--ac);
+}
+.app-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  border-color: var(--ac);
+}
+.app-icon { font-size: 1.8rem; margin-bottom: 10px; }
+.app-name { font-size: 0.88rem; font-weight: 800; margin-bottom: 2px; }
+.app-role {
+  font-size: 0.67rem; font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ac);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.app-desc { font-size: 0.74rem; color: var(--muted); line-height: 1.65; }
+.app-analogy {
+  margin-top: 10px;
+  background: #f8f9fc;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.71rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+.app-analogy span {
+  font-weight: 700;
+  color: var(--ac);
+}
+
+/* ===== DIVIDER ===== */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  max-width: 840px;
+  margin: 0 auto;
+}
+
+/* ===== FOOTER ===== */
+footer {
+  text-align: center;
+  padding: 24px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+}
+
+/* colors */
+.ac-blue   { --ac: #3b82f6; }
+.ac-purple { --ac: #8b5cf6; }
+.ac-green  { --ac: #10b981; }
+.ac-orange { --ac: #f59e0b; }
+.ac-pink   { --ac: #ec4899; }
+.ac-cyan   { --ac: #06b6d4; }
+.ac-red    { --ac: #ef4444; }
+.ac-indigo { --ac: #6366f1; }
+
+@media (max-width: 600px) {
+  .before-after { grid-template-columns: 1fr; }
+  .arrow-ba { transform: rotate(90deg); }
+  .apps-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">SYSTEM OVERVIEW</div>
+  <h1>📋 テレアポリード収集システム</h1>
+  <p>毎週の求人サイト巡回・リストアップ作業を<strong style="color:#c7d2fe">完全自動化</strong>した仕組みをわかりやすく解説します</p>
+</div>
+
+
+<!-- ===== SECTION 1: こんなことをしました ===== -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">1</div>
+    <div>
+      <h2>こんなことをしました</h2>
+      <p>自動化によって何が変わったか</p>
+    </div>
+  </div>
+
+  <div class="before-after">
+    <div class="ba-card before">
+      <span class="ba-label">BEFORE　自動化前</span>
+      <span class="ba-icon">😓</span>
+      <div class="ba-title">手作業でリスト作成</div>
+      <div class="ba-desc">
+        担当者が毎週<br>求人サイトを1件ずつ開いて<br>会社名・電話番号・住所を<br>Excelにコピペ
+      </div>
+      <div class="ba-stat">数時間 / 週</div>
+    </div>
+
+    <div class="arrow-ba">→</div>
+
+    <div class="ba-card after">
+      <span class="ba-label">AFTER　自動化後</span>
+      <span class="ba-icon">🤖</span>
+      <div class="ba-title">全自動でリスト完成</div>
+      <div class="ba-desc">
+        毎週月曜8:00に自動起動<br>3サイトを巡回して情報収集<br>電話番号・住所も自動補完<br>スプレッドシートに保存
+      </div>
+      <div class="ba-stat">300件以上 / 週　人手ゼロ</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== SECTION 2: こんな流れで実行します ===== -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)">2</div>
+    <div>
+      <h2>こんな流れで実行されます</h2>
+      <p>月曜日の朝、裏側でこんな処理が自動で動いています</p>
+    </div>
+  </div>
+
+  <div class="flow">
+
+    <div class="flow-item">
+      <div class="flow-num" style="background:#6366f1">⏰</div>
+      <div class="flow-body">
+        <h3>
+          毎週月曜8:00 に自動起動
+          <span class="flow-tag" style="background:#ede9fe;color:#7c3aed">GitHub Actions</span>
+        </h3>
+        <p>タイマーが発動し、プログラムが入っているサーバー（GitHub）から最新のコードを取り出して、処理を開始します。</p>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num" style="background:#3b82f6">🌐</div>
+      <div class="flow-body">
+        <h3>
+          3つの求人サイトを同時に巡回
+          <span class="flow-tag" style="background:#dbeafe;color:#1d4ed8">Playwright</span>
+        </h3>
+        <p>目に見えないブラウザ（Chrome）が自動で起動し、マイナビバイト・enゲージ・求人BOXの3サイトを同時に開いて、東京都内の求人情報（警備・ドライバー・飲食）を読み取ります。</p>
+        <div class="flow-result">📥 取得数：3サイト合計 約576件</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num" style="background:#f59e0b">🔍</div>
+      <div class="flow-body">
+        <h3>
+          重複チェックで絞り込み
+          <span class="flow-tag" style="background:#fef3c7;color:#92400e">SQLite</span>
+        </h3>
+        <p>「先週も同じ会社が載っていた」というケースを自動で除外します。会社名＋住所を組み合わせた識別子（フィンガープリント）を記録しておき、以前に収集済みなら除外。</p>
+        <div class="flow-result">🗑 重複除外後：約280〜300件に絞り込み</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num" style="background:#06b6d4">📞</div>
+      <div class="flow-body">
+        <h3>
+          電話番号・住所を2段階で補完
+          <span class="flow-tag" style="background:#cffafe;color:#0e7490">Google Maps API</span>
+        </h3>
+        <p>求人サイトに電話番号が載っていない会社に対し、GoogleマップAPIに自動で問い合わせ。会社名＋住所を送ると、電話番号と番地付き住所が返ってきます。</p>
+        <div class="flow-result">📞 2026-W23タブ実績：442件中 365件（82%）補填成功</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num" style="background:#10b981">📊</div>
+      <div class="flow-body">
+        <h3>
+          スプレッドシートへ自動書き込み
+          <span class="flow-tag" style="background:#d1fae5;color:#065f46">Google Sheets</span>
+        </h3>
+        <p>その週の日付名（例：2026-W24）のタブが自動作成され、会社名・住所・電話番号・業種・収集日時が書き込まれます。担当者はスプレッドシートを開くだけでOK。</p>
+        <div class="flow-result">✅ 完了：月曜朝には新鮮なリストが届いています</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ===== SECTION 3: 使ったアプリケーション ===== -->
+<div class="section">
+  <div class="section-head">
+    <div class="section-num" style="background:linear-gradient(135deg,#10b981,#06b6d4)">3</div>
+    <div>
+      <h2>使ったアプリケーションはこれです</h2>
+      <p>それぞれの役割と「身近なもので例えると？」</p>
+    </div>
+  </div>
+
+  <div class="apps-grid">
+
+    <div class="app-card ac-pink">
+      <div class="app-icon">🤖</div>
+      <div class="app-name">Claude Code</div>
+      <div class="app-role">AIエンジニア</div>
+      <div class="app-desc">このシステムのプログラムを書いたAI。日本語で「こんな機能がほしい」と伝えると、コードに変換してくれる。</div>
+      <div class="app-analogy"><span>例えると…</span><br>設計図を描く建築家。人間の要望を聞いてシステムを設計・構築する。</div>
+    </div>
+
+    <div class="app-card ac-orange">
+      <div class="app-icon">🐙</div>
+      <div class="app-name">GitHub</div>
+      <div class="app-role">コード保管庫 ＋ 変更管理</div>
+      <div class="app-desc">プログラムのコードを保管する場所。変更の履歴が全部残るので、バグが出たときに前の状態に戻せる。シークレット（パスワード類）の安全な保管庫でもある。</div>
+      <div class="app-analogy"><span>例えると…</span><br>Googleドライブ＋変更履歴機能。ファイルの全履歴が見える保管庫。</div>
+    </div>
+
+    <div class="app-card ac-indigo">
+      <div class="app-icon">⚙️</div>
+      <div class="app-name">GitHub Actions</div>
+      <div class="app-role">自動実行スケジューラー</div>
+      <div class="app-desc">「毎週月曜8時になったら、このプログラムを動かせ」という指示を実行するタイマー付きロボット。手動でも「実行」ボタンを押せば動く。</div>
+      <div class="app-analogy"><span>例えると…</span><br>自動炊飯器。「月曜の朝に炊き上がるよう前夜にセット」と同じ仕組み。</div>
+    </div>
+
+    <div class="app-card ac-blue">
+      <div class="app-icon">🎭</div>
+      <div class="app-name">Playwright</div>
+      <div class="app-role">ブラウザ自動操作ツール</div>
+      <div class="app-desc">目に見えない（画面が出ない）Chromeブラウザを自動で操作する道具。人間が手でブラウザを開いてページをスクロールする作業を代わりにやってくれる。</div>
+      <div class="app-analogy"><span>例えると…</span><br>URLを渡すだけでネットショッピングを代わりにやってくれるロボット手。</div>
+    </div>
+
+    <div class="app-card ac-purple">
+      <div class="app-icon">🐍</div>
+      <div class="app-name">Python</div>
+      <div class="app-role">処理の頭脳（プログラミング言語）</div>
+      <div class="app-desc">このシステム全体を動かすプログラムの言語。収集・整理・重複チェック・API呼び出し・シート書き込みをすべて指揮している。</div>
+      <div class="app-analogy"><span>例えると…</span><br>司令塔。各部門（Playwright・API・スプレッドシート）に指示を出すマネージャー。</div>
+    </div>
+
+    <div class="app-card ac-orange" style="--ac:#d97706">
+      <div class="app-icon">🗃️</div>
+      <div class="app-name">SQLite</div>
+      <div class="app-role">重複チェック用データベース</div>
+      <div class="app-desc">「以前に収集した会社」を記録しておくメモ帳のようなデータベース。これにより毎週同じ会社がリストに入るのを防ぐ。</div>
+      <div class="app-analogy"><span>例えると…</span><br>「もう連絡した会社リスト」が書かれたノート。次回見たとき「あ、これは済み」とわかる。</div>
+    </div>
+
+    <div class="app-card ac-cyan">
+      <div class="app-icon">🗺️</div>
+      <div class="app-name">Google Maps API</div>
+      <div class="app-role">電話番号・住所の自動調査</div>
+      <div class="app-desc">Googleマップに掲載されている会社情報をプログラムから検索できる「正式な問い合わせ窓口」。会社名＋住所を送ると電話番号が返ってくる。</div>
+      <div class="app-analogy"><span>例えると…</span><br>Googleマップで会社名を検索して電話番号をコピペする作業を、自動でやってくれるロボット。</div>
+    </div>
+
+    <div class="app-card ac-green">
+      <div class="app-icon">🔑</div>
+      <div class="app-name">Googleサービスアカウント</div>
+      <div class="app-role">ロボット用のGoogleアカウント</div>
+      <div class="app-desc">スプレッドシートに書き込む許可をプログラムに与えるための「ロボット専用のGoogleアカウント」。人間のGmailとは別に作る。</div>
+      <div class="app-analogy"><span>例えると…</span><br>会社の公式アカウント。「個人アカウントではなくシステム専用アカウントでログインする」イメージ。</div>
+    </div>
+
+    <div class="app-card ac-green" style="--ac:#059669">
+      <div class="app-icon">📊</div>
+      <div class="app-name">Google スプレッドシート</div>
+      <div class="app-role">最終成果物（出力先）</div>
+      <div class="app-desc">Excelのオンライン版。収集した全リードが毎週新しいタブに書き込まれる。担当者はここを開くだけでテレアポリストが確認できる。</div>
+      <div class="app-analogy"><span>例えると…</span><br>毎週月曜の朝に新しい資料が届く「共有フォルダ」。</div>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  テレアポリード収集システム 構成説明 ／ カードにカーソルを合わせると詳細が強調表示されます
+</footer>
+
+</body>
+</html>
