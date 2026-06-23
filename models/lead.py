@@ -5,6 +5,7 @@ from datetime import datetime
 
 class Lead(BaseModel):
     company_name: str
+    corporate_number: Optional[str] = ""
     address: str
     phone: Optional[str] = ""
     industry: str

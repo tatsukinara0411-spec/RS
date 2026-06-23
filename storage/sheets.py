@@ -17,7 +17,7 @@ SCOPES = [
 ]
 
 SPREADSHEET_TITLE = "テレアポリスト"
-HEADER = ["会社名", "住所", "電話番号", "業種", "ソース", "収集日時"]
+HEADER = ["会社名", "法人番号", "住所", "電話番号", "業種", "ソース", "収集日時"]
 
 
 def _get_client() -> gspread.Client:
@@ -120,6 +120,7 @@ def write_leads(leads: list[Lead], dry_run: bool = False) -> str:
     rows = [
         [
             lead.company_name,
+            lead.corporate_number or "",
             lead.address,
             lead.phone or "",
             lead.industry,
