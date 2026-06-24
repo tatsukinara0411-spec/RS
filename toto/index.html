@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社内ワールドカップTOTO 2026</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>⚽ 社内ワールドカップTOTO 2026</h1>
+    <p class="subtitle">決勝トーナメント予想バトル</p>
+  </header>
+
+  <section class="info-bar">
+    <div class="info-item">
+      <span class="label">参加費</span>
+      <span class="value" id="entry-fee">1,000円</span>
+    </div>
+    <div class="info-item">
+      <span class="label">参加者数</span>
+      <span class="value" id="participant-count">0名</span>
+    </div>
+    <div class="info-item">
+      <span class="label">賞金プール</span>
+      <span class="value" id="prize-pool">0円</span>
+    </div>
+    <div class="info-item">
+      <span class="label">締切</span>
+      <span class="value">R32開始前</span>
+    </div>
+  </section>
+
+  <!-- ランキング -->
+  <section class="section">
+    <h2>🏆 現在のランキング</h2>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>順位</th>
+          <th>名前</th>
+          <th>ポイント</th>
+          <th>正解数</th>
+          <th>賞金予測</th>
+        </tr>
+      </thead>
+      <tbody id="ranking-body">
+      </tbody>
+    </table>
+  </section>
+
+  <!-- トーナメントブラケット -->
+  <section class="section">
+    <h2>🗓️ トーナメント進捗</h2>
+    <div class="bracket-container" id="bracket">
+      <!-- JSで動的生成 -->
+    </div>
+  </section>
+
+  <!-- オッズ表 -->
+  <section class="section">
+    <h2>📊 優勝オッズ一覧</h2>
+    <div class="odds-grid" id="odds-grid">
+    </div>
+  </section>
+
+  <!-- 参加ルール -->
+  <section class="section rules">
+    <h2>📋 参加ルール</h2>
+    <div class="rules-grid">
+      <div class="rule-card">
+        <h3>ポイント計算</h3>
+        <table class="point-table">
+          <tr><th>ラウンド</th><th>基本点</th></tr>
+          <tr><td>ラウンド32</td><td>1pt</td></tr>
+          <tr><td>ラウンド16</td><td>2pt</td></tr>
+          <tr><td>準々決勝</td><td>4pt</td></tr>
+          <tr><td>準決勝</td><td>8pt</td></tr>
+          <tr><td>決勝</td><td>16pt</td></tr>
+        </table>
+        <p class="note">※ 基本点 × オッズ倍率 = 獲得ポイント</p>
+      </div>
+      <div class="rule-card">
+        <h3>賞金配分</h3>
+        <table class="point-table">
+          <tr><th>順位</th><th>配分</th></tr>
+          <tr><td>🥇 1位</td><td>賞金プールの50%</td></tr>
+          <tr><td>🥈 2位</td><td>賞金プールの30%</td></tr>
+          <tr><td>🥉 3位</td><td>賞金プールの20%</td></tr>
+        </table>
+        <p class="note">※ 賞金プール＝参加費総額×80%（胴元20%）</p>
+      </div>
+      <div class="rule-card">
+        <h3>参加方法</h3>
+        <ol>
+          <li>胴元に参加費を支払う</li>
+          <li>スプレッドシートにアクセス</li>
+          <li>自分の名前の列に各ラウンドの勝者チームを入力</li>
+          <li>R32開始前に入力完了</li>
+          <li>あとは待つだけ！</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>更新: <span id="last-updated"></span> | 胴元: <span id="administrator">-</span></p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

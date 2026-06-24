@@ -1,0 +1,342 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  background: #0a1628;
+  color: #e0e8f0;
+  min-height: 100vh;
+}
+
+header {
+  background: linear-gradient(135deg, #1a3a5c 0%, #0d2137 100%);
+  text-align: center;
+  padding: 40px 20px 30px;
+  border-bottom: 2px solid #2a5f9e;
+}
+
+header h1 {
+  font-size: 2.2rem;
+  color: #f0c040;
+  text-shadow: 0 2px 8px rgba(240,192,64,0.4);
+  margin-bottom: 8px;
+}
+
+header .subtitle {
+  color: #8ab4d8;
+  font-size: 1rem;
+}
+
+.info-bar {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  background: #0d2137;
+  border-bottom: 1px solid #1e4060;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 32px;
+  border-right: 1px solid #1e4060;
+}
+
+.info-item:last-child {
+  border-right: none;
+}
+
+.info-item .label {
+  font-size: 0.7rem;
+  color: #6a9bc0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.info-item .value {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #f0c040;
+}
+
+.section {
+  max-width: 1200px;
+  margin: 32px auto;
+  padding: 0 20px;
+}
+
+.section h2 {
+  font-size: 1.3rem;
+  color: #f0c040;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1e4060;
+}
+
+/* ランキング */
+.ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #0d2137;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ranking-table th {
+  background: #1a3a5c;
+  color: #8ab4d8;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ranking-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #1a3040;
+  font-size: 0.95rem;
+}
+
+.ranking-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ranking-table tr:nth-child(1) td { background: rgba(255,215,0,0.08); }
+.ranking-table tr:nth-child(2) td { background: rgba(192,192,192,0.05); }
+.ranking-table tr:nth-child(3) td { background: rgba(205,127,50,0.05); }
+
+.rank-badge {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 28px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.rank-1 { background: #ffd700; color: #1a1a1a; }
+.rank-2 { background: #c0c0c0; color: #1a1a1a; }
+.rank-3 { background: #cd7f32; color: #1a1a1a; }
+.rank-other { background: #2a4a6a; color: #8ab4d8; }
+
+.points { font-weight: bold; color: #f0c040; font-size: 1.1rem; }
+.prize-est { color: #6adb8a; font-size: 0.85rem; }
+
+/* ブラケット */
+.bracket-container {
+  overflow-x: auto;
+  padding-bottom: 16px;
+}
+
+.bracket {
+  display: flex;
+  gap: 0;
+  min-width: 900px;
+}
+
+.round-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.round-header {
+  text-align: center;
+  padding: 8px 4px;
+  font-size: 0.75rem;
+  color: #6a9bc0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: #0d2137;
+  border-bottom: 1px solid #1e4060;
+  margin-bottom: 8px;
+}
+
+.match-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 4px 2px;
+}
+
+.match-card {
+  background: #0d2137;
+  border: 1px solid #1e4060;
+  border-radius: 6px;
+  width: 100%;
+  overflow: hidden;
+  font-size: 0.82rem;
+}
+
+.match-card .team {
+  padding: 7px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1a3040;
+  cursor: default;
+}
+
+.match-card .team:last-child {
+  border-bottom: none;
+}
+
+.match-card .team.winner {
+  background: rgba(106,219,138,0.15);
+  color: #6adb8a;
+  font-weight: bold;
+}
+
+.match-card .team.loser {
+  color: #4a6a8a;
+}
+
+.match-card .team .flag {
+  margin-right: 6px;
+}
+
+.match-card .team .score {
+  font-weight: bold;
+  color: #f0c040;
+  margin-left: 8px;
+}
+
+.match-card .team.tbd {
+  color: #3a5a7a;
+  font-style: italic;
+}
+
+.connector {
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e4060;
+  font-size: 10px;
+}
+
+/* オッズグリッド */
+.odds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.odds-card {
+  background: #0d2137;
+  border: 1px solid #1e4060;
+  border-radius: 8px;
+  padding: 14px 12px;
+  text-align: center;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.odds-card:hover {
+  transform: translateY(-2px);
+  border-color: #2a5f9e;
+}
+
+.odds-card .team-name {
+  font-size: 0.88rem;
+  color: #c0d8f0;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.odds-card .odds-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #f0c040;
+}
+
+.odds-card .odds-label {
+  font-size: 0.7rem;
+  color: #4a6a8a;
+  margin-top: 2px;
+}
+
+.odds-card.favorite { border-color: #f05050; }
+.odds-card.underdog { border-color: #6adb8a; }
+
+/* ルール */
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.rule-card {
+  background: #0d2137;
+  border: 1px solid #1e4060;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.rule-card h3 {
+  color: #8ab4d8;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1a3040;
+}
+
+.point-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.point-table th {
+  text-align: left;
+  color: #6a9bc0;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
+.point-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #1a3040;
+}
+
+.point-table td:last-child {
+  color: #f0c040;
+  font-weight: bold;
+  text-align: right;
+}
+
+.rule-card .note {
+  font-size: 0.75rem;
+  color: #4a6a8a;
+  margin-top: 10px;
+}
+
+.rule-card ol {
+  padding-left: 18px;
+  font-size: 0.88rem;
+  line-height: 2;
+  color: #c0d8f0;
+}
+
+footer {
+  text-align: center;
+  padding: 24px;
+  color: #3a5a7a;
+  font-size: 0.8rem;
+  border-top: 1px solid #1a3040;
+  margin-top: 40px;
+}
+
+@media (max-width: 600px) {
+  header h1 { font-size: 1.5rem; }
+  .info-item { padding: 12px 16px; }
+  .info-item .value { font-size: 1rem; }
+}
