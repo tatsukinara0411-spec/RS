@@ -133,6 +133,7 @@ function onOpen() {
     .addItem("🔧 初回セットアップ（全シート作成）", "setupAll")
     .addSeparator()
     .addItem("🏆 ランキング更新", "updateRanking")
+    .addItem("📊 賭け一覧＆SIM更新", "updateBetSummarySheet")
     .addSeparator()
     .addItem("📢 今すぐリマインドメール送信", "sendReminderNow")
     .addItem("⏰ リマインド自動送信を設定", "setupReminderTrigger")
@@ -660,6 +661,177 @@ function autoReminder() {
   if (targetRound) {
     sendReminderNow();
   }
+}
+
+// ============================
+// 賭け一覧＆SIMシート
+// ============================
+function updateBetSummarySheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const masterSheet = ss.getSheetByName("👥参加者マスタ");
+  const oddsSheet   = ss.getSheetByName("📊オッズ");
+
+  // 参加者リスト
+  const masterData = masterSheet.getDataRange().getValues();
+  const participants = [];
+  for (let i = 3; i < masterData.length; i++) {
+    const name = masterData[i][0];
+    if (name && name !== "") participants.push(name);
+  }
+
+  // オッズマップ
+  const oddsData = oddsSheet.getDataRange().getValues();
+  const oddsMap = {};
+  for (let i = 1; i < oddsData.length; i++) {
+    if (oddsData[i][0]) oddsMap[oddsData[i][0]] = oddsData[i][2];
+  }
+
+  const roundPts = { R32: 1, R16: 2, QF: 4, SF: 8, Final: 16 };
+
+  // シート準備
+  let sheet = ss.getSheetByName("📊賭け一覧＆SIM");
+  if (!sheet) sheet = ss.insertSheet("📊賭け一覧＆SIM");
+  sheet.clearContents();
+  sheet.clearFormats();
+
+  // ===== セクション1: 誰がどこに賭けているか一覧 =====
+  let row = 1;
+
+  sheet.getRange(row, 1, 1, participants.length + 3).merge()
+    .setValue("📋 賭け一覧 — 誰がどの試合に賭けているか")
+    .setBackground("#1a3a5c").setFontColor("#f0c040")
+    .setFontSize(13).setFontWeight("bold");
+  row++;
+
+  // ヘッダー行
+  const header1 = ["ラウンド", "試合ID", "対戦カード", ...participants];
+  sheet.getRange(row, 1, 1, header1.length).setValues([header1])
+    .setBackground("#0d2137").setFontColor("#6a9bc0").setFontWeight("bold");
+  row++;
+
+  // 各ラウンドの賭け内容を出力
+  ROUNDS.forEach(round => {
+    const betSheet = ss.getSheetByName(round.tab);
+    if (!betSheet) return;
+
+    const betData = betSheet.getDataRange().getValues();
+    const headerRow = betData[2]; // 3行目（0-indexed: 2）
+
+    round.matches.forEach((match, mi) => {
+      const betRow = betData[mi + 3]; // 4行目以降
+      if (!betRow) return;
+
+      const card = match.teamA === "TBD" ? "（未定）" : `${match.teamA} vs ${match.teamB}`;
+      const rowData = [round.name, match.id, card];
+
+      participants.forEach(name => {
+        const colIdx = headerRow.findIndex(c => c === name);
+        const val = colIdx >= 0 && betRow[colIdx] ? betRow[colIdx] : "";
+        rowData.push(val);
+      });
+
+      sheet.getRange(row, 1, 1, rowData.length).setValues([rowData]);
+
+      // 行の背景色
+      const bg = mi % 2 === 0 ? "#0d2137" : "#0a1628";
+      sheet.getRange(row, 1, 1, rowData.length).setBackground(bg);
+      sheet.getRange(row, 1).setFontColor("#8ab4d8");
+      sheet.getRange(row, 2).setFontColor("#6a9bc0");
+      sheet.getRange(row, 3).setFontColor("#c0d8f0");
+      for (let j = 0; j < participants.length; j++) {
+        const cell = sheet.getRange(row, j + 4);
+        cell.setFontColor("#f0c040").setFontWeight("bold").setHorizontalAlignment("center");
+      }
+      row++;
+    });
+  });
+
+  row += 2;
+
+  // ===== セクション2: SIM — あるチームが勝ったら各自いくら獲得？ =====
+  sheet.getRange(row, 1, 1, participants.length + 3).merge()
+    .setValue("🎲 SIM — 各試合の勝者ごとに獲得ポイント試算")
+    .setBackground("#1a3a5c").setFontColor("#f0c040")
+    .setFontSize(13).setFontWeight("bold");
+  row++;
+
+  sheet.getRange(row, 1, 1, participants.length + 3).merge()
+    .setValue("※ 現在の賭け内容をもとに「もしこのチームが勝ったら」を試算。ポイント = 100円 × ラウンド倍率 × オッズ")
+    .setBackground("#0a1628").setFontColor("#8ab4d8").setFontStyle("italic");
+  row++;
+
+  const header2 = ["ラウンド", "試合ID", "もし勝者が…", ...participants];
+  sheet.getRange(row, 1, 1, header2.length).setValues([header2])
+    .setBackground("#0d2137").setFontColor("#6a9bc0").setFontWeight("bold");
+  row++;
+
+  ROUNDS.forEach(round => {
+    const betSheet = ss.getSheetByName(round.tab);
+    if (!betSheet) return;
+
+    const betData = betSheet.getDataRange().getValues();
+    const headerRow = betData[2];
+    const basePt = roundPts[round.id] || 1;
+
+    round.matches.forEach((match, mi) => {
+      const betRow = betData[mi + 3];
+      if (!betRow) return;
+
+      const teams = match.teamA === "TBD" ? ["（未定）"] : [match.teamA, match.teamB];
+
+      teams.forEach((team, ti) => {
+        const simRow = [round.name, match.id, team === "（未定）" ? "（未定）" : `${team} が勝つ`];
+        const odds = oddsMap[team] || 1;
+
+        participants.forEach(name => {
+          const colIdx = headerRow.findIndex(c => c === name);
+          const bet = colIdx >= 0 ? String(betRow[colIdx] || "").trim() : "";
+          if (bet === team) {
+            const pts = Math.round(CFG.betUnit * basePt * odds * 10) / 10;
+            simRow.push(`+${pts}pt`);
+          } else if (bet !== "" && bet !== team) {
+            simRow.push("ハズレ");
+          } else {
+            simRow.push("-");
+          }
+        });
+
+        sheet.getRange(row, 1, 1, simRow.length).setValues([simRow]);
+
+        const bg = (mi * 2 + ti) % 2 === 0 ? "#0d2137" : "#0a1628";
+        sheet.getRange(row, 1, 1, simRow.length).setBackground(bg);
+        sheet.getRange(row, 1).setFontColor("#8ab4d8");
+        sheet.getRange(row, 2).setFontColor("#6a9bc0");
+        sheet.getRange(row, 3).setFontColor("#c0d8f0").setFontWeight("bold");
+
+        for (let j = 0; j < participants.length; j++) {
+          const cell = sheet.getRange(row, j + 4);
+          const val = simRow[j + 3];
+          if (String(val).startsWith("+")) {
+            cell.setFontColor("#00e676").setFontWeight("bold");
+          } else if (val === "ハズレ") {
+            cell.setFontColor("#ef5350");
+          } else {
+            cell.setFontColor("#555555");
+          }
+          cell.setHorizontalAlignment("center");
+        }
+        row++;
+      });
+    });
+  });
+
+  // 列幅調整
+  sheet.setColumnWidth(1, 110);
+  sheet.setColumnWidth(2, 90);
+  sheet.setColumnWidth(3, 180);
+  for (let j = 0; j < participants.length; j++) {
+    sheet.setColumnWidth(j + 4, 100);
+  }
+
+  sheet.setFrozenRows(2);
+
+  SpreadsheetApp.getUi().alert("✅ 賭け一覧＆SIMシートを更新しました！");
 }
 
 // ============================
