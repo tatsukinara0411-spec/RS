@@ -413,7 +413,6 @@ function createBetSheet(ss, round) {
 
   // 行固定
   sheet.setFrozenRows(3);
-  sheet.setFrozenColumns(2);
 
   // 注記
   const noteRow = totalRow + 2;
