@@ -3,111 +3,799 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>社内ワールドカップTOTO 2026</title>
-  <link rel="stylesheet" href="style.css">
+  <title>⚽ 社内ワールドカップTOTO 2026</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold: #f0c040;
+      --green: #00c853;
+      --red: #ef5350;
+      --navy: #0a1628;
+      --navy2: #0d2137;
+      --navy3: #1a3a5c;
+      --blue: #2a5f9e;
+      --muted: #6a9bc0;
+      --text: #e0e8f0;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--navy);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== HERO ===== */
+    .hero {
+      position: relative;
+      background: linear-gradient(160deg, #0a2040 0%, #0d3060 40%, #0a1628 100%);
+      text-align: center;
+      padding: 60px 20px 48px;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(0,200,83,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 50%, rgba(240,192,64,0.08) 0%, transparent 60%);
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: #1a1a1a;
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: 3px;
+      padding: 4px 16px;
+      border-radius: 2px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-family: 'Bebas Neue', 'Noto Sans JP', sans-serif;
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      color: white;
+      letter-spacing: 2px;
+      line-height: 1.1;
+      text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      margin-bottom: 8px;
+    }
+
+    .hero h1 span { color: var(--gold); }
+
+    .hero-sub {
+      color: var(--muted);
+      font-size: 1rem;
+      margin-bottom: 32px;
+    }
+
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+      max-width: 700px;
+      margin: 0 auto;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(10px);
+    }
+
+    .stat-item {
+      flex: 1;
+      min-width: 120px;
+      padding: 16px 20px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      text-align: center;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+    .stat-value { font-size: 1.6rem; font-weight: 900; color: var(--gold); }
+
+    /* ===== NAV TABS ===== */
+    .tab-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      background: rgba(10,22,40,0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 0 16px;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 14px 20px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+
+    .tab-btn:hover { color: var(--text); }
+
+    /* ===== SECTIONS ===== */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: var(--gold);
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    /* ===== RANKING ===== */
+    .ranking-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .rank-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--navy2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 16px 20px;
+      transition: transform 0.15s, border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rank-card:hover { transform: translateX(4px); border-color: rgba(255,255,255,0.15); }
+    .rank-card.rank-1 { border-color: rgba(255,215,0,0.4); background: linear-gradient(90deg, rgba(255,215,0,0.08) 0%, var(--navy2) 50%); }
+    .rank-card.rank-2 { border-color: rgba(192,192,192,0.3); background: linear-gradient(90deg, rgba(192,192,192,0.06) 0%, var(--navy2) 50%); }
+    .rank-card.rank-3 { border-color: rgba(205,127,50,0.3); background: linear-gradient(90deg, rgba(205,127,50,0.06) 0%, var(--navy2) 50%); }
+
+    .rank-number {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2rem;
+      width: 48px;
+      text-align: center;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .rank-1 .rank-number { color: #ffd700; }
+    .rank-2 .rank-number { color: #c0c0c0; }
+    .rank-3 .rank-number { color: #cd7f32; }
+
+    .rank-info { flex: 1; }
+    .rank-name { font-size: 1.1rem; font-weight: 900; margin-bottom: 4px; }
+    .rank-detail { font-size: 0.8rem; color: var(--muted); }
+
+    .rank-payout {
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .rank-payout .amount { font-size: 1.4rem; font-weight: 900; color: var(--green); }
+    .rank-payout .prize { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .rank-bets {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .bet-chip {
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      color: var(--muted);
+    }
+    .bet-chip.hit { background: rgba(0,200,83,0.15); color: var(--green); }
+    .bet-chip.miss { background: rgba(239,83,80,0.12); color: var(--red); }
+
+    /* ===== MATCHES ===== */
+    .round-section { margin-bottom: 40px; }
+
+    .round-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--navy3);
+      color: var(--gold);
+      font-size: 0.75rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
+
+    .matches-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+
+    .match-card {
+      background: var(--navy2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .match-card:hover { border-color: rgba(255,255,255,0.15); }
+    .match-card.done { border-color: rgba(0,200,83,0.2); }
+    .match-card.upcoming { border-color: rgba(42,95,158,0.3); }
+
+    .match-header {
+      padding: 8px 14px;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .match-body { padding: 12px 14px; }
+
+    .team-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .team-row:last-child { border-bottom: none; }
+
+    .team-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .team-flag { font-size: 1.2rem; }
+
+    .team-row.winner .team-name-cell { color: var(--green); }
+    .team-row.loser .team-name-cell { color: #4a6a8a; }
+    .team-row.tbd .team-name-cell { color: #3a5a7a; font-style: italic; }
+
+    .score-badge {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      color: var(--gold);
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .match-bets {
+      padding: 8px 14px 10px;
+      background: rgba(255,255,255,0.02);
+      border-top: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .match-bet-chip {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(42,95,158,0.3);
+      color: #8ab4d8;
+    }
+    .match-bet-chip.on-winner { background: rgba(0,200,83,0.2); color: var(--green); }
+    .match-bet-chip.on-loser { background: rgba(239,83,80,0.1); color: #ef9a9a; text-decoration: line-through; opacity: 0.6; }
+
+    /* ===== WHO BETS WHERE ===== */
+    .betmap-table-wrap { overflow-x: auto; }
+
+    .betmap-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      min-width: 600px;
+    }
+
+    .betmap-table th {
+      background: var(--navy3);
+      color: var(--muted);
+      padding: 10px 12px;
+      text-align: center;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .betmap-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .betmap-table .match-id { color: var(--muted); font-size: 0.75rem; }
+    .betmap-table .card-col { text-align: left; color: #c0d8f0; }
+
+    .bet-cell { font-weight: 700; color: var(--gold); }
+    .bet-cell.hit { color: var(--green); }
+    .bet-cell.miss { color: var(--red); text-decoration: line-through; opacity: 0.6; }
+    .bet-cell.empty { color: #2a4060; }
+
+    .round-separator td {
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-align: center;
+      padding: 6px;
+    }
+
+    /* ===== RULES ===== */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .rule-card {
+      background: var(--navy2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .rule-card h3 {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .rule-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .rule-table td { padding: 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .rule-table td:last-child { color: var(--gold); font-weight: 700; text-align: right; }
+    .rule-card ol { padding-left: 18px; line-height: 2.2; font-size: 0.85rem; color: #c0d8f0; }
+
+    /* ===== LOADING ===== */
+    .loading {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+
+    .loading .ball {
+      font-size: 3rem;
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #3a5a7a;
+      font-size: 0.78rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      margin-top: 40px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 2rem; }
+      .stat-value { font-size: 1.2rem; }
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <h1>⚽ 社内ワールドカップTOTO 2026</h1>
-    <p class="subtitle">決勝トーナメント予想バトル</p>
-  </header>
 
-  <section class="info-bar">
-    <div class="info-item">
-      <span class="label">参加費</span>
-      <span class="value" id="entry-fee">1,000円</span>
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">FIFA World Cup 2026</div>
+  <h1>社内 <span>TOTO</span><br>2026</h1>
+  <p class="hero-sub">決勝トーナメント 予想バトル ⚽</p>
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-label">参加者</div>
+      <div class="stat-value" id="stat-participants">-</div>
     </div>
-    <div class="info-item">
-      <span class="label">参加者数</span>
-      <span class="value" id="participant-count">0名</span>
+    <div class="stat-item">
+      <div class="stat-label">賞金プール</div>
+      <div class="stat-value" id="stat-prize">-</div>
     </div>
-    <div class="info-item">
-      <span class="label">賞金プール</span>
-      <span class="value" id="prize-pool">0円</span>
+    <div class="stat-item">
+      <div class="stat-label">試合消化</div>
+      <div class="stat-value" id="stat-matches">-</div>
     </div>
-    <div class="info-item">
-      <span class="label">締切</span>
-      <span class="value">R32開始前</span>
+    <div class="stat-item">
+      <div class="stat-label">更新</div>
+      <div class="stat-value" style="font-size:0.85rem" id="stat-updated">-</div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- ランキング -->
-  <section class="section">
-    <h2>🏆 現在のランキング</h2>
-    <table class="ranking-table">
-      <thead>
-        <tr>
-          <th>順位</th>
-          <th>名前</th>
-          <th>ポイント</th>
-          <th>正解数</th>
-          <th>賞金予測</th>
-        </tr>
-      </thead>
-      <tbody id="ranking-body">
-      </tbody>
-    </table>
-  </section>
+<!-- TAB NAV -->
+<nav class="tab-nav">
+  <button class="tab-btn active" data-tab="ranking">🏆 ランキング</button>
+  <button class="tab-btn" data-tab="matches">⚽ 試合結果</button>
+  <button class="tab-btn" data-tab="betmap">📋 賭け一覧</button>
+  <button class="tab-btn" data-tab="rules">📖 ルール</button>
+</nav>
 
-  <!-- トーナメントブラケット -->
-  <section class="section">
-    <h2>🗓️ トーナメント進捗</h2>
-    <div class="bracket-container" id="bracket">
-      <!-- JSで動的生成 -->
+<!-- ===== RANKING ===== -->
+<div class="tab-panel active" id="tab-ranking">
+  <div class="container">
+    <div class="section-title">🏆 現在のランキング</div>
+    <div class="ranking-list" id="ranking-list">
+      <div class="loading"><div class="ball">⚽</div><p style="margin-top:16px">データ読み込み中...</p></div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- オッズ表 -->
-  <section class="section">
-    <h2>📊 優勝オッズ一覧</h2>
-    <div class="odds-grid" id="odds-grid">
+<!-- ===== MATCHES ===== -->
+<div class="tab-panel" id="tab-matches">
+  <div class="container">
+    <div class="section-title">⚽ トーナメント結果</div>
+    <div id="matches-container">
+      <div class="loading"><div class="ball">⚽</div><p style="margin-top:16px">データ読み込み中...</p></div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <!-- 参加ルール -->
-  <section class="section rules">
-    <h2>📋 参加ルール</h2>
+<!-- ===== BET MAP ===== -->
+<div class="tab-panel" id="tab-betmap">
+  <div class="container">
+    <div class="section-title">📋 誰がどこに賭けているか</div>
+    <div class="betmap-table-wrap">
+      <table class="betmap-table" id="betmap-table">
+        <thead id="betmap-head"></thead>
+        <tbody id="betmap-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RULES ===== -->
+<div class="tab-panel" id="tab-rules">
+  <div class="container">
+    <div class="section-title">📖 参加ルール</div>
     <div class="rules-grid">
       <div class="rule-card">
-        <h3>ポイント計算</h3>
-        <table class="point-table">
-          <tr><th>ラウンド</th><th>基本点</th></tr>
-          <tr><td>ラウンド32</td><td>1pt</td></tr>
-          <tr><td>ラウンド16</td><td>2pt</td></tr>
-          <tr><td>準々決勝</td><td>4pt</td></tr>
-          <tr><td>準決勝</td><td>8pt</td></tr>
-          <tr><td>決勝</td><td>16pt</td></tr>
+        <h3>💰 報酬ルール</h3>
+        <table class="rule-table">
+          <tr><td>強い方が勝ったら</td><td>賭け金 × 1.5倍</td></tr>
+          <tr><td>弱い方が勝ったら</td><td>賭け金 × 2.0倍</td></tr>
+          <tr><td>ハズレ</td><td>0円</td></tr>
         </table>
-        <p class="note">※ 基本点 × オッズ倍率 = 獲得ポイント</p>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:10px">※ オッズが低い方＝強い方</p>
       </div>
       <div class="rule-card">
-        <h3>賞金配分</h3>
-        <table class="point-table">
-          <tr><th>順位</th><th>配分</th></tr>
+        <h3>🎁 賞金配分</h3>
+        <table class="rule-table">
           <tr><td>🥇 1位</td><td>賞金プールの50%</td></tr>
           <tr><td>🥈 2位</td><td>賞金プールの30%</td></tr>
           <tr><td>🥉 3位</td><td>賞金プールの20%</td></tr>
         </table>
-        <p class="note">※ 賞金プール＝参加費総額×80%（胴元20%）</p>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:10px">※ 賞金プール＝全賭け金合計の80%</p>
       </div>
       <div class="rule-card">
-        <h3>参加方法</h3>
+        <h3>📝 参加方法</h3>
         <ol>
-          <li>胴元に参加費を支払う</li>
-          <li>スプレッドシートにアクセス</li>
-          <li>自分の名前の列に各ラウンドの勝者チームを入力</li>
-          <li>R32開始前に入力完了</li>
-          <li>あとは待つだけ！</li>
+          <li>胴元に参加を申告</li>
+          <li>スプレッドシートを開く</li>
+          <li>自分の列に賭けるチーム名を入力</li>
+          <li>1試合100円・上限1,000円</li>
+          <li>締切を過ぎると入力不可</li>
         </ol>
       </div>
     </div>
-  </section>
+  </div>
+</div>
 
-  <footer>
-    <p>更新: <span id="last-updated"></span> | 胴元: <span id="administrator">-</span></p>
-  </footer>
+<footer>
+  <p>⚽ 社内ワールドカップTOTO 2026 | 胴元: <span id="footer-admin">-</span> | <span id="footer-updated">-</span></p>
+</footer>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+<script>
+// ============================
+// 設定：GAS Web App URL をここに入力
+// ============================
+const GAS_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+
+// フラグ絵文字マップ
+const FLAGS = {
+  "ブラジル":"🇧🇷","フランス":"🇫🇷","スペイン":"🇪🇸","アルゼンチン":"🇦🇷",
+  "イングランド":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","ドイツ":"🇩🇪","ポルトガル":"🇵🇹","オランダ":"🇳🇱",
+  "ベルギー":"🇧🇪","クロアチア":"🇭🇷","ウルグアイ":"🇺🇾","メキシコ":"🇲🇽",
+  "アメリカ":"🇺🇸","モロッコ":"🇲🇦","日本":"🇯🇵","韓国":"🇰🇷",
+  "セネガル":"🇸🇳","オーストラリア":"🇦🇺","スイス":"🇨🇭","デンマーク":"🇩🇰",
+  "チュニジア":"🇹🇳","カナダ":"🇨🇦","チリ":"🇨🇱","ガーナ":"🇬🇭",
+  "ナイジェリア":"🇳🇬","ポーランド":"🇵🇱","コロンビア":"🇨🇴","コートジボワール":"🇨🇮",
+  "エクアドル":"🇪🇨","セルビア":"🇷🇸","スウェーデン":"🇸🇪","カメルーン":"🇨🇲",
+};
+
+function flag(name) { return FLAGS[name] || "🏳️"; }
+
+// ============================
+// タブ切替
+// ============================
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ============================
+// データ取得 & 描画
+// ============================
+async function loadData() {
+  // GAS URLが未設定の場合はデモデータを使用
+  if (GAS_URL === "YOUR_GAS_WEB_APP_URL_HERE") {
+    renderAll(DEMO_DATA);
+    return;
+  }
+
+  try {
+    const res = await fetch(GAS_URL);
+    const data = await res.json();
+    renderAll(data);
+  } catch (e) {
+    document.getElementById("ranking-list").innerHTML =
+      `<div class="loading"><p>⚠️ データの取得に失敗しました。<br>GAS_URLを確認してください。</p></div>`;
+  }
+}
+
+function renderAll(data) {
+  // ヘッダー統計
+  const doneCount = (data.matches || []).filter(m => m.winner).length;
+  document.getElementById("stat-participants").textContent = (data.participants || []).length + "名";
+  document.getElementById("stat-prize").textContent = (data.prizePool || 0).toLocaleString() + "円";
+  document.getElementById("stat-matches").textContent = doneCount + "/" + (data.matches || []).length;
+  document.getElementById("stat-updated").textContent = data.updatedAt || "-";
+  document.getElementById("footer-admin").textContent = data.administrator || "-";
+  document.getElementById("footer-updated").textContent = data.updatedAt || "-";
+
+  renderRanking(data);
+  renderMatches(data);
+  renderBetMap(data);
+}
+
+// ============================
+// ランキング
+// ============================
+function renderRanking(data) {
+  const participants = data.participants || [];
+  const prizePool = data.prizePool || 0;
+  const prizes = [0.50, 0.30, 0.20].map(r => Math.floor(prizePool * r));
+
+  if (participants.length === 0) {
+    document.getElementById("ranking-list").innerHTML =
+      `<div class="loading"><p>まだ参加者がいません</p></div>`;
+    return;
+  }
+
+  const winnerMap = {};
+  (data.matches || []).forEach(m => { if (m.winner) winnerMap[m.id] = m.winner; });
+
+  const html = participants.map((p, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? `rank-${rank}` : "";
+    const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank;
+    const prize = rank <= 3 ? `賞金予測 ${prizes[rank-1].toLocaleString()}円` : "";
+
+    // 賭けチップ
+    const betChips = Object.entries(p.bets || {}).map(([matchId, team]) => {
+      const winner = winnerMap[matchId];
+      const cls = !winner ? "" : winner === team ? "hit" : "miss";
+      return `<span class="bet-chip ${cls}">${flag(team)}${team}</span>`;
+    }).join("");
+
+    return `
+      <div class="rank-card ${rankClass}">
+        <div class="rank-number">${medal}</div>
+        <div class="rank-info">
+          <div class="rank-name">${p.name}</div>
+          <div class="rank-detail">的中 ${p.hitCount}件 / 賭け ${p.totalBet.toLocaleString()}円</div>
+          <div class="rank-bets">${betChips}</div>
+        </div>
+        <div class="rank-payout">
+          <div class="amount">${p.totalPayout.toLocaleString()}円</div>
+          <div class="prize">${prize}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.getElementById("ranking-list").innerHTML = html;
+}
+
+// ============================
+// 試合結果
+// ============================
+function renderMatches(data) {
+  const matches = data.matches || [];
+  const rounds = data.rounds || [];
+  const participants = data.participants || [];
+
+  const container = document.getElementById("matches-container");
+
+  const html = rounds.map(round => {
+    const rMatches = matches.filter(m => m.round === round.id);
+    if (rMatches.length === 0) return "";
+
+    const cards = rMatches.map(m => {
+      const isDone = !!m.winner;
+      const isTBD = m.teamA === "TBD";
+
+      const teamRow = (teamName, score) => {
+        const isTbd = teamName === "TBD" || !teamName;
+        const isWin = isDone && m.winner === teamName;
+        const isLos = isDone && m.winner && m.winner !== teamName && !isTbd;
+        const cls = isTbd ? "tbd" : isWin ? "winner" : isLos ? "loser" : "";
+        const f = isTbd ? "🏳️" : flag(teamName);
+        return `
+          <div class="team-row ${cls}">
+            <div class="team-name-cell">
+              <span class="team-flag">${f}</span>
+              ${isTbd ? "未定" : teamName}
+              ${isWin ? ' <span style="font-size:0.75rem;color:var(--green)">▶ 勝利</span>' : ""}
+            </div>
+            ${score !== null && score !== undefined ? `<div class="score-badge">${score}</div>` : ""}
+          </div>`;
+      };
+
+      // この試合への賭けチップ
+      const betChips = participants.flatMap(p => {
+        const bet = (p.bets || {})[m.id];
+        if (!bet) return [];
+        const cls = !isDone ? "" : m.winner === bet ? "on-winner" : "on-loser";
+        return [`<span class="match-bet-chip ${cls}">${p.name}: ${flag(bet)}${bet}</span>`];
+      }).join("");
+
+      return `
+        <div class="match-card ${isDone ? "done" : "upcoming"}">
+          <div class="match-header">
+            <span>${m.id}</span>
+            <span>${isDone ? "✅ 終了" : "⏳ 予定"}</span>
+          </div>
+          <div class="match-body">
+            ${teamRow(m.teamA, m.scoreA)}
+            ${teamRow(m.teamB, m.scoreB)}
+          </div>
+          ${betChips ? `<div class="match-bets">${betChips}</div>` : ""}
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="round-section">
+        <div class="round-label">⚽ ${round.name}</div>
+        <div class="matches-grid">${cards}</div>
+      </div>`;
+  }).join("");
+
+  container.innerHTML = html || `<div class="loading"><p>試合データがありません</p></div>`;
+}
+
+// ============================
+// 賭け一覧表
+// ============================
+function renderBetMap(data) {
+  const participants = data.participants || [];
+  const matches = data.matches || [];
+  const rounds = data.rounds || [];
+
+  const winnerMap = {};
+  matches.forEach(m => { if (m.winner) winnerMap[m.id] = m.winner; });
+
+  // ヘッダー
+  document.getElementById("betmap-head").innerHTML = `
+    <tr>
+      <th>試合ID</th>
+      <th style="text-align:left">対戦カード</th>
+      ${participants.map(p => `<th>${p.name}</th>`).join("")}
+    </tr>`;
+
+  // ボディ
+  let bodyHtml = "";
+  rounds.forEach(round => {
+    const rMatches = matches.filter(m => m.round === round.id);
+    if (rMatches.length === 0) return;
+
+    bodyHtml += `<tr class="round-separator"><td colspan="${participants.length + 2}">── ${round.name} ──</td></tr>`;
+
+    rMatches.forEach(m => {
+      const card = m.teamA === "TBD" ? "（未定）" : `${flag(m.teamA)}${m.teamA} vs ${flag(m.teamB)}${m.teamB}`;
+      const cells = participants.map(p => {
+        const bet = (p.bets || {})[m.id];
+        if (!bet) return `<td class="bet-cell empty">-</td>`;
+        const winner = winnerMap[m.id];
+        const cls = !winner ? "" : winner === bet ? "hit" : "miss";
+        return `<td class="bet-cell ${cls}">${flag(bet)}${bet}</td>`;
+      }).join("");
+
+      bodyHtml += `
+        <tr>
+          <td class="match-id">${m.id}</td>
+          <td class="card-col">${card}</td>
+          ${cells}
+        </tr>`;
+    });
+  });
+
+  document.getElementById("betmap-body").innerHTML = bodyHtml ||
+    `<tr><td colspan="${participants.length + 2}" style="text-align:center;padding:32px;color:var(--muted)">データなし</td></tr>`;
+}
+
+// ============================
+// デモデータ（GAS未設定時）
+// ============================
+const DEMO_DATA = {
+  updatedAt: "デモ表示中",
+  administrator: "タロウ",
+  prizePool: 2400,
+  rounds: [
+    { id: "R32", name: "ラウンド32", deadline: "2026-06-29 19:00" },
+    { id: "R16", name: "ラウンド16", deadline: "2026-07-04 19:00" },
+  ],
+  matches: [
+    { id: "R32-01", round: "R32", teamA: "ブラジル", teamB: "セネガル", scoreA: 2, scoreB: 0, winner: "ブラジル" },
+    { id: "R32-02", round: "R32", teamA: "フランス", teamB: "モロッコ", scoreA: 1, scoreB: 2, winner: "モロッコ" },
+    { id: "R32-03", round: "R32", teamA: "スペイン", teamB: "メキシコ", scoreA: null, scoreB: null, winner: null },
+    { id: "R16-01", round: "R16", teamA: "TBD", teamB: "TBD", scoreA: null, scoreB: null, winner: null },
+  ],
+  participants: [
+    { name: "田中太郎", totalBet: 300, totalPayout: 200, hitCount: 1, bets: { "R32-01": "ブラジル", "R32-02": "フランス", "R32-03": "スペイン" } },
+    { name: "鈴木花子", totalBet: 200, totalPayout: 400, hitCount: 1, bets: { "R32-01": "セネガル", "R32-02": "モロッコ" } },
+    { name: "佐藤次郎", totalBet: 100, totalPayout: 0,   hitCount: 0, bets: { "R32-02": "フランス" } },
+  ],
+};
+
+// ============================
+// 起動
+// ============================
+loadData();
+</script>
 </body>
 </html>

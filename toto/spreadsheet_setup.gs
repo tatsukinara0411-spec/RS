@@ -675,3 +675,99 @@ function sendReminderNow() {
 
   SpreadsheetApp.getUi().alert(`✅ ${sentCount}名にリマインドメールを送信しました`);
 }
+
+// ============================
+// GAS Web App：JSONデータ配信
+// ============================
+function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const data = getPublicData(ss);
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getPublicData(ss) {
+  const masterSheet = ss.getSheetByName("👥参加者マスタ");
+  const resultSheet = ss.getSheetByName("📋結果入力");
+  const betSheet    = ss.getSheetByName("🎯賭け入力");
+
+  // 参加者
+  const masterData = masterSheet.getDataRange().getValues();
+  const participants = [];
+  for (let i = 2; i < masterData.length; i++) {
+    if (masterData[i][0] && masterData[i][0] !== "") participants.push(masterData[i][0]);
+  }
+
+  // 結果マップ
+  const resultData = resultSheet.getDataRange().getValues();
+  const matches = [];
+  const winnerMap = {};
+  for (let i = 2; i < resultData.length; i++) {
+    const id = resultData[i][0];
+    if (!id) continue;
+    const roundId = resultData[i][1];
+    const teamA = resultData[i][2];
+    const teamB = resultData[i][3];
+    const scoreA = resultData[i][4];
+    const scoreB = resultData[i][5];
+    const winner = resultData[i][6] || null;
+    if (teamA === "── ") continue; // セパレーター行スキップ
+    if (roundId && teamA && teamA !== "──") {
+      matches.push({ id, round: roundId, teamA, teamB, scoreA: scoreA || null, scoreB: scoreB || null, winner });
+      if (winner) winnerMap[id] = winner;
+    }
+  }
+
+  // 賭けデータ
+  const betData = betSheet.getDataRange().getValues();
+  const betHeaderRow = betData[2];
+  const oddsMap = {};
+  TEAMS.forEach(t => { oddsMap[t.name] = t.odds; });
+
+  // 参加者ごとの賭け内容と獲得金額
+  const stats = participants.map(name => {
+    const colIdx = betHeaderRow.findIndex(c => c === name);
+    const bets = {};
+    let totalBet = 0;
+    let totalPayout = 0;
+    let hitCount = 0;
+
+    ROUNDS.forEach(round => {
+      round.matches.forEach(match => {
+        const betRow = findBetRow(betData, match.id);
+        if (!betRow || colIdx < 0) return;
+        const bet = String(betRow[colIdx] || "").trim();
+        if (!bet) return;
+        bets[match.id] = bet;
+        totalBet += 100;
+
+        const winner = winnerMap[match.id];
+        if (winner && bet === winner) {
+          const oddsA = oddsMap[match.teamA] || 999;
+          const oddsB = oddsMap[match.teamB] || 999;
+          const favorite = oddsA <= oddsB ? match.teamA : match.teamB;
+          const multiplier = winner === favorite ? 1.5 : 2.0;
+          totalPayout += Math.round(100 * multiplier);
+          hitCount++;
+        }
+      });
+    });
+
+    return { name, bets, totalBet, totalPayout, hitCount };
+  });
+
+  stats.sort((a, b) => b.totalPayout - a.totalPayout);
+
+  const totalPool = stats.reduce((sum, s) => sum + s.totalBet, 0);
+  const prizePool = Math.floor(totalPool * 0.8);
+
+  return {
+    updatedAt: new Date().toLocaleString("ja-JP"),
+    administrator: CFG.administrator,
+    prizePool,
+    participants: stats,
+    matches,
+    rounds: ROUNDS.map(r => ({ id: r.id, name: r.name, deadline: r.deadline })),
+  };
+}
