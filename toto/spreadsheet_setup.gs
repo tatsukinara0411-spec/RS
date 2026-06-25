@@ -356,6 +356,18 @@ function setupOnEditTrigger() {
 function onEditLockBet(e) {
   if (!e) return;
   const sheet = e.range.getSheet();
+
+  // 参加者マスタが編集されたら賭け入力シートを自動更新
+  if (sheet.getName() === "👥参加者マスタ") {
+    const row = e.range.getRow();
+    const col = e.range.getColumn();
+    if (row >= 3 && col === 1) { // 名前列（A列）が変更された場合
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      setupBetSheet(ss);
+    }
+    return;
+  }
+
   if (sheet.getName() !== "🎯賭け入力") return;
 
   const row = e.range.getRow();
