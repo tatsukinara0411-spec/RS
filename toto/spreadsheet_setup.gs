@@ -15,6 +15,8 @@ const CFG = {
   maxBudget: 1000,
   betUnit: 100,
   prizeRatio: [0.50, 0.30, 0.20],
+  favoriteMultiplier: 1.5,  // 強い方（オッズ低い）が勝った場合の倍率
+  underdogMultiplier: 2.0,  // 弱い方（オッズ高い）が勝った場合の倍率
 };
 
 // ============================
@@ -408,33 +410,42 @@ function updateAdminView() {
   const betData = betSheet.getDataRange().getValues();
   const betHeaderRow = betData[2]; // 3行目（0-indexed:2）がヘッダー
 
-  // オッズマップ
+  // オッズマップ（強い・弱い判定用）
   const oddsMap = {};
   TEAMS.forEach(t => { oddsMap[t.name] = t.odds; });
-
-  // ラウンドポイント
-  const roundPts = { R32: 1, R16: 2, QF: 4, SF: 8, Final: 16 };
 
   // 結果マップ（試合ID → 勝者）
   const resultData = resultSheet.getDataRange().getValues();
   const winnerMap = {};
+  const matchTeams = {}; // 試合ID → { teamA, teamB }
   for (let i = 2; i < resultData.length; i++) {
     const id = resultData[i][0];
     const winner = resultData[i][6];
+    const tA = resultData[i][2];
+    const tB = resultData[i][3];
+    if (id) matchTeams[id] = { teamA: tA, teamB: tB };
     if (id && winner && winner !== "") winnerMap[id] = winner;
+  }
+
+  // 試合ごとに「強い方」を返すヘルパー（オッズが低い = 強い）
+  function getFavorite(matchId) {
+    const teams = matchTeams[matchId];
+    if (!teams || teams.teamA === "TBD") return null;
+    const oddsA = oddsMap[teams.teamA] || 999;
+    const oddsB = oddsMap[teams.teamB] || 999;
+    return oddsA <= oddsB ? teams.teamA : teams.teamB;
   }
 
   // 参加者ごとに集計
   const stats = participants.map(name => {
     const colIdx = betHeaderRow.findIndex(c => c === name);
     let totalBet = 0;
-    let totalPts = 0;
+    let totalPayout = 0; // 獲得金額
     let hitCount = 0;
     const betsByRound = { R32: 0, R16: 0, QF: 0, SF: 0, Final: 0 };
 
     ROUNDS.forEach(round => {
-      round.matches.forEach((match, mi) => {
-        // 賭け入力シートの行を探す（セパレーター行があるため線形探索）
+      round.matches.forEach((match) => {
         const betRow = findBetRow(betData, match.id);
         if (!betRow || colIdx < 0) return;
         const bet = String(betRow[colIdx] || "").trim();
@@ -445,14 +456,15 @@ function updateAdminView() {
 
         const winner = winnerMap[match.id];
         if (winner && bet === winner) {
-          const pts = Math.round(CFG.betUnit * (roundPts[round.id] || 1) * (oddsMap[winner] || 1) * 10) / 10;
-          totalPts += pts;
+          const favorite = getFavorite(match.id);
+          const multiplier = (winner === favorite) ? CFG.favoriteMultiplier : CFG.underdogMultiplier;
+          totalPayout += Math.round(CFG.betUnit * multiplier);
           hitCount++;
         }
       });
     });
 
-    return { name, totalBet, totalPts, hitCount, betsByRound, over: totalBet > CFG.maxBudget };
+    return { name, totalBet, totalPayout, hitCount, betsByRound, over: totalBet > CFG.maxBudget };
   });
 
   let row = 1;
@@ -464,7 +476,7 @@ function updateAdminView() {
     .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
   row++;
 
-  const sec1Header = ["名前", "合計使用額", "残り予算", "上限超過？", "R32", "R16", "QF", "SF/決勝"];
+  const sec1Header = ["名前", "合計使用額", "残り予算", "上限超過？", "獲得金額", "的中数", "R32", "R16", "QF", "SF/決勝"];
   adminSheet.getRange(row, 1, 1, sec1Header.length).setValues([sec1Header])
     .setBackground("#0d2137").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
@@ -473,11 +485,13 @@ function updateAdminView() {
     const remaining = CFG.maxBudget - s.totalBet;
     const overText = s.over ? "⚠️ 超過！" : "OK";
     const sfFinal = (s.betsByRound["SF"] || 0) + (s.betsByRound["Final"] || 0);
-    adminSheet.getRange(row, 1, 1, 8).setValues([[
+    adminSheet.getRange(row, 1, 1, 10).setValues([[
       s.name,
       `${s.totalBet}円`,
       `${remaining}円`,
       overText,
+      `${s.totalPayout}円`,
+      s.hitCount,
       s.betsByRound["R32"] || 0,
       s.betsByRound["R16"] || 0,
       s.betsByRound["QF"]  || 0,
@@ -501,7 +515,7 @@ function updateAdminView() {
   row++;
 
   adminSheet.getRange(row, 1, 1, participants.length + 3).merge()
-    .setValue("※ ポイント = 100円 × ラウンド倍率 × オッズ")
+    .setValue("※ 強い方（オッズ低）が勝つ→1.5倍、弱い方（オッズ高）が勝つ→2倍。当たった場合の獲得金額を表示。")
     .setBackground("#0a1628").setFontColor("#8ab4d8").setFontStyle("italic");
   row++;
 
@@ -511,21 +525,28 @@ function updateAdminView() {
   row++;
 
   ROUNDS.forEach(round => {
-    const basePt = roundPts[round.id] || 1;
     round.matches.forEach((match, mi) => {
       const betRow = findBetRow(betData, match.id);
       if (!betRow) return;
 
       const teams = match.teamA === "TBD" ? ["（未定）"] : [match.teamA, match.teamB];
+
+      // 強い方を判定（オッズ低い = 強い）
+      const oddsA = oddsMap[match.teamA] || 999;
+      const oddsB = oddsMap[match.teamB] || 999;
+      const favorite = match.teamA === "TBD" ? null : (oddsA <= oddsB ? match.teamA : match.teamB);
+
       teams.forEach((team, ti) => {
-        const simRow = [round.name, match.id, team === "（未定）" ? "（未定）" : `${team} が勝つ`];
-        const odds = oddsMap[team] || 1;
+        const multiplier = (team === favorite) ? CFG.favoriteMultiplier : CFG.underdogMultiplier;
+        const label = match.teamA === "TBD" ? "（未定）"
+          : `${team} が勝つ（${team === favorite ? "強" : "弱"}・${multiplier}倍）`;
+        const simRow = [round.name, match.id, label];
 
         participants.forEach(name => {
           const colIdx = betHeaderRow.findIndex(c => c === name);
           const bet = colIdx >= 0 ? String(betRow[colIdx] || "").trim() : "";
           if (bet === team) {
-            simRow.push(`+${Math.round(CFG.betUnit * basePt * odds * 10) / 10}pt`);
+            simRow.push(`+${Math.round(CFG.betUnit * multiplier)}円`);
           } else if (bet !== "") {
             simRow.push("ハズレ");
           } else {
@@ -562,7 +583,7 @@ function updateAdminView() {
     .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
   row++;
 
-  const rankHeader = ["順位", "名前", "獲得ポイント", "的中数", "賞金予測"];
+  const rankHeader = ["順位", "名前", "獲得金額", "的中数", "賞金予測"];
   adminSheet.getRange(row, 1, 1, rankHeader.length).setValues([rankHeader])
     .setBackground("#0d2137").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
@@ -571,12 +592,12 @@ function updateAdminView() {
   const prizePool = Math.floor(totalPool * 0.8);
   const prizes = CFG.prizeRatio.map(r => Math.floor(prizePool * r));
 
-  const sorted = [...stats].sort((a, b) => b.totalPts - a.totalPts);
+  const sorted = [...stats].sort((a, b) => b.totalPayout - a.totalPayout);
   sorted.forEach((s, i) => {
     const rank = i + 1;
     const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
     const prize = rank <= 3 ? `${prizes[rank - 1]}円` : "-";
-    adminSheet.getRange(row, 1, 1, 5).setValues([[medal, s.name, s.totalPts, s.hitCount, prize]]);
+    adminSheet.getRange(row, 1, 1, 5).setValues([[medal, s.name, `${s.totalPayout}円`, s.hitCount, prize]]);
     const bg = rank === 1 ? "#fff8dc" : rank === 2 ? "#f5f5f5" : rank === 3 ? "#fde8d0" : null;
     if (bg) adminSheet.getRange(row, 1, 1, 5).setBackground(bg);
     row++;
