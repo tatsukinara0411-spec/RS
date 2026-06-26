@@ -1,0 +1,31 @@
+name: 法人番号補填（NTAリストから転記）
+
+on:
+  workflow_dispatch:
+    inputs:
+      tab_name:
+        description: '補填対象のタブ名（例: 2026-W24）。全タブは "all"'
+        required: true
+        default: 'all'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: pip install -r requirements.txt
+
+      - name: 法人番号転記実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          TAB_NAME: ${{ inputs.tab_name }}
+        run: python tools/backfill_from_nta_list.py
