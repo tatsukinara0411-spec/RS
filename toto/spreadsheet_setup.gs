@@ -677,14 +677,26 @@ function sendReminderNow() {
 }
 
 // ============================
-// GAS Web App：JSONデータ配信
+// GAS Web App：HTML or JSON配信
 // ============================
 function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const data = getPublicData(ss);
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+  const params = e && e.parameter ? e.parameter : {};
+
+  // ?data=1 の場合はJSONを返す
+  if (params.data === "1") {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const data = getPublicData(ss);
+    const output = ContentService
+      .createTextOutput(JSON.stringify(data))
+      .setMimeType(ContentService.MimeType.JSON);
+    return output;
+  }
+
+  // それ以外はHTMLページを返す
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("⚽ 社内ワールドカップTOTO 2026")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 }
 
 function getPublicData(ss) {
