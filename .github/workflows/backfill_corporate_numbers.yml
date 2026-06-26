@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tab_name:
-        description: '補填対象のタブ名（例: 2026-W24）'
+        description: '補填対象のタブ名（例: 2026-W24）。全タブ対象は "all"'
         required: true
-        default: '2026-W24'
+        default: 'all'
 
 jobs:
   backfill:
