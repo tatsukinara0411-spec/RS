@@ -9,6 +9,7 @@
 
 使い方:
   TAB_NAME=2026-W24 python tools/backfill_corporate_numbers.py
+  TAB_NAME=all python tools/backfill_corporate_numbers.py  # 全タブ一括
 """
 import asyncio
 import logging
@@ -204,7 +205,7 @@ async def backfill(ws: gspread.Worksheet, app_id: str, concurrency: int = 3) -> 
 
 
 def main():
-    tab_name = os.environ.get("TAB_NAME", "2026-W24")
+    tab_name = os.environ.get("TAB_NAME", "all").strip()
     app_id = os.environ.get("NTA_API_KEY", "")  # 未設定でもHTMLフォールバックで動く
 
     if app_id:
@@ -222,11 +223,22 @@ def main():
     sid = m.group(1) if m else spreadsheet_id
 
     ss = client.open_by_key(sid)
-    ws = ss.worksheet(tab_name)
-    logger.info(f"タブ '{tab_name}' を開きました")
 
-    found = asyncio.run(backfill(ws, app_id))
-    print(f"\n✅ 補填完了: 法人番号 {found}件 追加しました")
+    if tab_name.lower() == "all":
+        worksheets = ss.worksheets()
+        logger.info(f"全タブを対象に補填します: {[ws.title for ws in worksheets]}")
+        total = 0
+        for ws in worksheets:
+            logger.info(f"\n── タブ '{ws.title}' 処理開始 ──")
+            found = asyncio.run(backfill(ws, app_id))
+            total += found
+            print(f"  ✅ '{ws.title}': {found}件 追加")
+        print(f"\n✅ 全タブ補填完了: 法人番号 合計{total}件 追加しました")
+    else:
+        ws = ss.worksheet(tab_name)
+        logger.info(f"タブ '{tab_name}' を開きました")
+        found = asyncio.run(backfill(ws, app_id))
+        print(f"\n✅ 補填完了: 法人番号 {found}件 追加しました")
 
 
 if __name__ == "__main__":
