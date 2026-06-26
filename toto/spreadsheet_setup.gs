@@ -697,7 +697,6 @@ function doGet(e) {
     .setTitle("⚽ 社内ワールドカップTOTO 2026")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
-}
 
 function getPublicData(ss) {
   const masterSheet = ss.getSheetByName("👥参加者マスタ");
