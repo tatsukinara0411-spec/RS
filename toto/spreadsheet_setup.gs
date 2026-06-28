@@ -128,9 +128,9 @@ const ADMIN_RESULT_ROW = 36;
 const ADMIN_VIEW_ROW   = 120;
 
 // 賭け入力シートの行定数
-const BET_PROGRESS_ROW = 3;  // 進捗サマリー開始行
-const BET_HEADER_ROW   = 8;  // 列ヘッダー行
-const BET_MATCH_ROW    = 9;  // 試合データ開始行
+const BET_PROGRESS_ROW = 3;   // 進捗サマリー開始行
+const BET_HEADER_ROW   = 10;  // 列ヘッダー行
+const BET_MATCH_ROW    = 11;  // 試合データ開始行
 
 // ============================
 // カスタムメニュー
@@ -234,17 +234,31 @@ function setupBetSheet(ss) {
   sheet.getRange(4, 3).setValue("入力済み試合数").setFontColor("#6a9bc0").setHorizontalAlignment("right");
   sheet.getRange(4, 1, 1, totalCols).setBackground("#0a1628");
 
-  // 行5: 合計使用額
-  sheet.getRange(5, 3).setValue("合計使用額（円）").setFontColor("#6a9bc0").setHorizontalAlignment("right");
+  // 行5: 的中数（updateAdminView実行時に更新）
+  sheet.getRange(5, 3).setValue("的中数 🎯").setFontColor("#6a9bc0").setHorizontalAlignment("right");
   sheet.getRange(5, 1, 1, totalCols).setBackground("#0d2137");
+  for (let j = 0; j < participants.length; j++) {
+    sheet.getRange(5, j + 5).setValue("—").setFontColor("#4a6a8a").setHorizontalAlignment("center");
+  }
 
-  // 行6: 残り予算
-  sheet.getRange(6, 3).setValue("残り予算（円）").setFontColor("#6a9bc0").setHorizontalAlignment("right");
+  // 行6: 獲得金額（updateAdminView実行時に更新）
+  sheet.getRange(6, 3).setValue("獲得金額（円）💰").setFontColor("#6a9bc0").setHorizontalAlignment("right");
   sheet.getRange(6, 1, 1, totalCols).setBackground("#0a1628");
+  for (let j = 0; j < participants.length; j++) {
+    sheet.getRange(6, j + 5).setValue("—").setFontColor("#4a6a8a").setHorizontalAlignment("center");
+  }
 
-  // 行7: 状況
-  sheet.getRange(7, 3).setValue("状況").setFontColor("#6a9bc0").setHorizontalAlignment("right");
+  // 行7: 合計使用額
+  sheet.getRange(7, 3).setValue("合計使用額（円）").setFontColor("#6a9bc0").setHorizontalAlignment("right");
   sheet.getRange(7, 1, 1, totalCols).setBackground("#0d2137");
+
+  // 行8: 残り予算
+  sheet.getRange(8, 3).setValue("残り予算（円）").setFontColor("#6a9bc0").setHorizontalAlignment("right");
+  sheet.getRange(8, 1, 1, totalCols).setBackground("#0a1628");
+
+  // 行9: 状況
+  sheet.getRange(9, 3).setValue("状況").setFontColor("#6a9bc0").setHorizontalAlignment("right");
+  sheet.getRange(9, 1, 1, totalCols).setBackground("#0d2137");
 
   // ── 行8: 列ヘッダー ──
   const headerRow = ["ラウンド", "試合ID", "対戦カード（★強=1.5倍/弱=2倍）", "締切", ...participants];
@@ -315,17 +329,17 @@ function setupBetSheet(ss) {
     sheet.getRange(4, col)
       .setFormula(`=COUNTA(${colL}${BET_MATCH_ROW}:${colL}${lastMatchRow})`)
       .setFontColor("#f0c040").setFontWeight("bold").setHorizontalAlignment("center");
-    // 合計使用額
-    sheet.getRange(5, col)
+    // 合計使用額（行7）
+    sheet.getRange(7, col)
       .setFormula(`=${colL}4*${CFG.betUnit}`)
       .setFontColor("#f0c040").setFontWeight("bold").setHorizontalAlignment("center");
-    // 残り予算
-    sheet.getRange(6, col)
-      .setFormula(`=${CFG.maxBudget}-${colL}5`)
+    // 残り予算（行8）
+    sheet.getRange(8, col)
+      .setFormula(`=${CFG.maxBudget}-${colL}7`)
       .setFontWeight("bold").setHorizontalAlignment("center");
-    // 状況
-    sheet.getRange(7, col)
-      .setFormula(`=IF(${colL}6<0,"⚠️超過",IF(${colL}4=0,"未入力",IF(${colL}6=0,"✅満額","入力中")))`)
+    // 状況（行9）
+    sheet.getRange(9, col)
+      .setFormula(`=IF(${colL}8<0,"⚠️超過",IF(${colL}4=0,"未入力",IF(${colL}8=0,"✅満額","入力中")))`)
       .setHorizontalAlignment("center").setFontWeight("bold");
   }
 
@@ -338,7 +352,7 @@ function setupBetSheet(ss) {
       SpreadsheetApp.newConditionalFormatRule()
         .whenNumberLessThan(0)
         .setBackground("#3c1010").setFontColor("#ef5350")
-        .setRanges([sheet.getRange(`${startCol}6:${endCol}6`)])
+        .setRanges([sheet.getRange(`${startCol}8:${endCol}8`)])
         .build()
     );
     sheet.setConditionalFormatRules(rules);
@@ -659,7 +673,30 @@ function updateAdminView() {
     .setValue(`賞金プール: ${prizePool.toLocaleString()}円（全賭け金の80%）`)
     .setFontColor("#8ab4d8").setFontStyle("italic");
 
-  SpreadsheetApp.getUi().alert("✅ 胴元ビューを更新しました！");
+  // 賭け入力シートの的中数・獲得金額も更新
+  updateBetSheetResults(ss, betSheet, stats);
+
+  SpreadsheetApp.getUi().alert("✅ 胴元ビューを更新しました！\n賭け入力シートの的中数・獲得金額も更新しました。");
+}
+
+// ============================
+// 賭け入力シートの的中数・獲得金額を更新
+// ============================
+function updateBetSheetResults(ss, betSheet, stats) {
+  if (!betSheet) return;
+  const headerRow = betSheet.getRange(BET_HEADER_ROW, 1, 1, betSheet.getLastColumn()).getValues()[0];
+
+  stats.forEach(s => {
+    const col = headerRow.findIndex(c => c === s.name);
+    if (col < 0) return;
+    const colIdx = col + 1; // 1-indexed
+    betSheet.getRange(5, colIdx).setValue(s.hitCount)
+      .setFontColor(s.hitCount > 0 ? "#00c853" : "#4a6a8a")
+      .setFontWeight("bold").setHorizontalAlignment("center");
+    betSheet.getRange(6, colIdx).setValue(s.totalPayout)
+      .setFontColor(s.totalPayout > 0 ? "#f0c040" : "#4a6a8a")
+      .setFontWeight("bold").setHorizontalAlignment("center");
+  });
 }
 
 // ============================
