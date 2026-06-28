@@ -63,22 +63,22 @@ const ROUNDS = [
     id: "R32", name: "ラウンド32",
     deadline: "2026-06-28 22:00",
     matches: [
-      { id: "R32-01", teamA: "南アフリカ",            teamB: "カナダ"               },
-      { id: "R32-02", teamA: "ブラジル",              teamB: "日本"                 },
-      { id: "R32-03", teamA: "ドイツ",                teamB: "パラグアイ"           },
-      { id: "R32-04", teamA: "オランダ",              teamB: "モロッコ"             },
-      { id: "R32-05", teamA: "コートジボワール",      teamB: "ノルウェー"           },
-      { id: "R32-06", teamA: "フランス",              teamB: "スウェーデン"         },
-      { id: "R32-07", teamA: "メキシコ",              teamB: "エクアドル"           },
-      { id: "R32-08", teamA: "イングランド",          teamB: "DRコンゴ"             },
-      { id: "R32-09", teamA: "ベルギー",              teamB: "セネガル"             },
-      { id: "R32-10", teamA: "アメリカ",              teamB: "ボスニア・ヘルツェゴビナ" },
-      { id: "R32-11", teamA: "スペイン",              teamB: "オーストリア"         },
-      { id: "R32-12", teamA: "ポルトガル",            teamB: "クロアチア"           },
-      { id: "R32-13", teamA: "スイス",                teamB: "アルジェリア"         },
-      { id: "R32-14", teamA: "オーストラリア",        teamB: "エジプト"             },
-      { id: "R32-15", teamA: "アルゼンチン",          teamB: "カーボベルデ"         },
-      { id: "R32-16", teamA: "コロンビア",            teamB: "ガーナ"               },
+      { id: "R32-01", teamA: "南アフリカ",            teamB: "カナダ",               deadline: "2026-06-28 22:00" },
+      { id: "R32-02", teamA: "ブラジル",              teamB: "日本",                 deadline: "2026-06-29 22:00" },
+      { id: "R32-03", teamA: "ドイツ",                teamB: "パラグアイ",           deadline: "2026-06-29 22:00" },
+      { id: "R32-04", teamA: "オランダ",              teamB: "モロッコ",             deadline: "2026-06-29 22:00" },
+      { id: "R32-05", teamA: "コートジボワール",      teamB: "ノルウェー",           deadline: "2026-06-30 22:00" },
+      { id: "R32-06", teamA: "フランス",              teamB: "スウェーデン",         deadline: "2026-06-30 22:00" },
+      { id: "R32-07", teamA: "メキシコ",              teamB: "エクアドル",           deadline: "2026-06-30 22:00" },
+      { id: "R32-08", teamA: "イングランド",          teamB: "DRコンゴ",             deadline: "2026-07-01 22:00" },
+      { id: "R32-09", teamA: "ベルギー",              teamB: "セネガル",             deadline: "2026-07-01 22:00" },
+      { id: "R32-10", teamA: "アメリカ",              teamB: "ボスニア・ヘルツェゴビナ", deadline: "2026-07-01 22:00" },
+      { id: "R32-11", teamA: "スペイン",              teamB: "オーストリア",         deadline: "2026-07-02 22:00" },
+      { id: "R32-12", teamA: "ポルトガル",            teamB: "クロアチア",           deadline: "2026-07-02 22:00" },
+      { id: "R32-13", teamA: "スイス",                teamB: "アルジェリア",         deadline: "2026-07-02 22:00" },
+      { id: "R32-14", teamA: "オーストラリア",        teamB: "エジプト",             deadline: "2026-07-03 22:00" },
+      { id: "R32-15", teamA: "アルゼンチン",          teamB: "カーボベルデ",         deadline: "2026-07-03 22:00" },
+      { id: "R32-16", teamA: "コロンビア",            teamB: "ガーナ",               deadline: "2026-07-03 22:00" },
     ]
   },
   {
@@ -178,6 +178,8 @@ function setupBetSheet(ss) {
   // 参加者リストを管理シートから取得
   const adminSheet = ss.getSheetByName("⚙️管理");
   const participants = getParticipantList(ss);
+  const oddsMap = {};
+  TEAMS.forEach(t => { oddsMap[t.name] = t.odds; });
 
   const totalCols = Math.max(participants.length + 4, 5);
 
@@ -211,8 +213,20 @@ function setupBetSheet(ss) {
     row++;
 
     round.matches.forEach((match, mi) => {
-      const card = match.teamA === "TBD" ? "（対戦カード未定）" : `${match.teamA} vs ${match.teamB}`;
-      sheet.getRange(row, 1, 1, 4).setValues([[round.name, match.id, card, round.deadline]]);
+      let card, matchDeadline;
+      if (match.teamA === "TBD") {
+        card = "（対戦カード未定）";
+        matchDeadline = match.deadline || round.deadline;
+      } else {
+        const oddsA = oddsMap[match.teamA] || 999;
+        const oddsB = oddsMap[match.teamB] || 999;
+        const favA = oddsA <= oddsB;
+        const labelA = `${match.teamA}(${favA ? "★強" : "弱"}・${favA ? CFG.favoriteMultiplier : CFG.underdogMultiplier}倍)`;
+        const labelB = `${match.teamB}(${!favA ? "★強" : "弱"}・${!favA ? CFG.favoriteMultiplier : CFG.underdogMultiplier}倍)`;
+        card = `${labelA} vs ${labelB}`;
+        matchDeadline = match.deadline || round.deadline;
+      }
+      sheet.getRange(row, 1, 1, 4).setValues([[round.name, match.id, card, matchDeadline]]);
       const bg = mi % 2 === 0 ? "#0d2137" : "#0a1628";
       sheet.getRange(row, 1, 1, totalCols).setBackground(bg);
       sheet.getRange(row, 1).setFontColor("#8ab4d8");
@@ -380,13 +394,13 @@ function onEditLockBet(e) {
   const col = e.range.getColumn();
   if (row < 4 || col < 5) return;
 
-  const deadlineStr = sheet.getRange(row, 4).getValue();
-  if (!deadlineStr) return;
-  const deadline = new Date(deadlineStr);
+  const deadlineVal = sheet.getRange(row, 4).getValue();
+  if (!deadlineVal) return;
+  const deadline = new Date(deadlineVal);
   const now = new Date();
   if (now > deadline) {
     e.range.setValue(e.oldValue || "");
-    SpreadsheetApp.getUi().alert(`⛔ 締切（${deadlineStr}）を過ぎているため入力できません。`);
+    SpreadsheetApp.getUi().alert(`⛔ 締切（${deadlineVal}）を過ぎているため入力できません。`);
   }
 }
 
