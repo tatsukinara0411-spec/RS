@@ -17,7 +17,8 @@ NTA_URL = "https://api.houjin-bangou.nta.go.jp/4/name"
 
 async def _lookup_one(
     session: aiohttp.ClientSession, company_name: str, address: str, app_id: str
-) -> str:
+) -> tuple[str, str]:
+    """(corporate_number, legal_name) を返す。未取得は空文字。"""
     params = {
         "appId": app_id,
         "name": company_name,
@@ -28,11 +29,11 @@ async def _lookup_one(
         timeout = aiohttp.ClientTimeout(total=10)
         async with session.get(NTA_URL, params=params, timeout=timeout) as resp:
             if resp.status != 200:
-                return ""
+                return "", ""
             data = await resp.json(content_type=None)
         corps = data.get("corporation", [])
         if not corps:
-            return ""
+            return "", ""
         # 住所の都道府県・市区町村が一致する候補を優先
         addr_prefix = address[:4] if len(address) >= 4 else address
         for corp in corps:
@@ -42,17 +43,17 @@ async def _lookup_one(
                 + corp.get("streetNumber", "")
             )
             if addr_prefix and addr_prefix in corp_addr:
-                return corp.get("corporateNumber", "")
-        # 一致なし → 候補の先頭を返す（会社名が完全一致のケースが多い）
-        return corps[0].get("corporateNumber", "")
+                return corp.get("corporateNumber", ""), corp.get("name", "")
+        # 一致なし → 候補の先頭を返す
+        return corps[0].get("corporateNumber", ""), corps[0].get("name", "")
     except Exception as e:
         logger.debug(f"法人番号取得エラー ({company_name}): {e}")
-        return ""
+        return "", ""
 
 
 async def enrich_with_corporate_numbers(leads: list, concurrency: int = 5) -> int:
     """
-    corporate_number が空のリードに対して法人番号を補完する。
+    corporate_number が空のリードに対して法人番号と法人名を補完する。
     補完できた件数を返す。
     """
     app_id = os.environ.get("NTA_API_KEY", "")
@@ -72,9 +73,11 @@ async def enrich_with_corporate_numbers(leads: list, concurrency: int = 5) -> in
         nonlocal found
         async with sem:
             await asyncio.sleep(0.1)
-            num = await _lookup_one(session, lead.company_name, lead.address, app_id)
+            num, legal = await _lookup_one(session, lead.company_name, lead.address, app_id)
             if num:
                 lead.corporate_number = num
+                if legal:
+                    lead.legal_name = legal
                 found += 1
 
     async with aiohttp.ClientSession() as session:

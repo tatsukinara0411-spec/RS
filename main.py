@@ -14,6 +14,7 @@ from playwright.async_api import async_playwright
 from scrapers.mynavi_baito import MynaviBaitoScraper
 from scrapers.en_engage import EnEngageScraper
 from scrapers.kyujinbox import KyujinboxScraper
+from scrapers.baitoru import BaitoruScraper
 from storage.database import init_db, deduplicate, mark_seen_pair
 from storage.sheets import write_leads
 from models.lead import Lead
@@ -43,6 +44,7 @@ async def run_scrape(dry_run: bool = False):
         MynaviBaitoScraper(semaphore),
         EnEngageScraper(semaphore),
         KyujinboxScraper(semaphore),
+        BaitoruScraper(semaphore),
     ]
 
     headless = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() != "false"
@@ -81,7 +83,7 @@ async def run_scrape(dry_run: bool = False):
 
         # 結果集約
         all_leads: list[Lead] = []
-        site_names = ["マイナビバイト", "enゲージ", "求人BOX"]
+        site_names = ["マイナビバイト", "enゲージ", "求人BOX", "バイトル"]
         for site, result in zip(site_names, results):
             if isinstance(result, Exception):
                 logger.error(f"[{site}] スクレイピング失敗: {result}")

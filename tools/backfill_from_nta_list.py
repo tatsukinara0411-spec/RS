@@ -54,7 +54,7 @@ def normalize(name: str) -> str:
 
 
 def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
-    """NTAリストの全シートから 正規化会社名→法人番号 の辞書を構築。"""
+    """NTAリストの全シートから 正規化会社名→(法人番号, 法人名) の辞書を構築。"""
     lookup = {}
     worksheets = nta_ss.worksheets()
     logger.info(f"NTAリストのシート数: {len(worksheets)}")
@@ -77,7 +77,7 @@ def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
                 name = row[NTA_COL_NAME].strip()
                 corp_num = row[NTA_COL_NUM].strip()
                 if name and corp_num:
-                    lookup[normalize(name)] = corp_num
+                    lookup[normalize(name)] = (corp_num, name)
                     count += 1
 
         logger.info(f"    → {count}件 (累計 {len(lookup)}件)")
@@ -85,11 +85,31 @@ def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
     return lookup
 
 
-def fill_tab(ws: gspread.Worksheet, lookup: dict) -> tuple[int, int]:
-    """タブ内の法人番号空白行をlookupで補填。(found, missing) を返す。"""
+def fill_tab(ws: gspread.Worksheet, lookup: dict) -> tuple:
+    """タブ内の法人番号空白行をlookupで補填。(found, missing) を返す。
+
+    旧フォーマット: A=会社名, B=法人番号, C=住所
+    新フォーマット: A=屋号,   B=法人名,   C=法人番号, D=住所
+    """
     header = ws.row_values(1)
-    if len(header) < 2 or header[1] != "法人番号":
-        logger.warning(f"タブ '{ws.title}': B列が「法人番号」でないためスキップ")
+    if not header:
+        return 0, 0
+
+    # フォーマット判定
+    if len(header) >= 3 and header[2] == "法人番号":
+        # 新フォーマット
+        col_company = 0   # A: 屋号
+        col_legal = 1     # B: 法人名
+        col_corp_num = 2  # C: 法人番号
+        new_format = True
+    elif len(header) >= 2 and header[1] == "法人番号":
+        # 旧フォーマット
+        col_company = 0   # A: 会社名
+        col_legal = None
+        col_corp_num = 1  # B: 法人番号
+        new_format = False
+    else:
+        logger.warning(f"タブ '{ws.title}': 法人番号列が見つからないためスキップ")
         return 0, 0
 
     all_values = ws.get_all_values()
@@ -102,17 +122,20 @@ def fill_tab(ws: gspread.Worksheet, lookup: dict) -> tuple[int, int]:
     missing = 0
 
     for i, row in enumerate(all_values[1:], start=2):
-        corp_num = row[COL_CORP_NUM] if len(row) > COL_CORP_NUM else ""
+        corp_num = row[col_corp_num] if len(row) > col_corp_num else ""
         if corp_num.strip():
             continue  # 既に入力済み
 
-        company = row[COL_COMPANY] if len(row) > COL_COMPANY else ""
+        company = row[col_company] if len(row) > col_company else ""
         if not company.strip():
             continue
 
-        matched = lookup.get(normalize(company), "")
+        matched = lookup.get(normalize(company))
         if matched:
-            cell_updates.append(gspread.Cell(i, COL_CORP_NUM + 1, matched))
+            corp_num, legal_name = matched
+            cell_updates.append(gspread.Cell(i, col_corp_num + 1, corp_num))
+            if new_format and col_legal is not None and not (row[col_legal] if len(row) > col_legal else "").strip():
+                cell_updates.append(gspread.Cell(i, col_legal + 1, legal_name))
             found += 1
         else:
             missing += 1
