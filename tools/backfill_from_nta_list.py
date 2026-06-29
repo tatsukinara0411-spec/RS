@@ -3,7 +3,7 @@
 「法人番号　リスト」スプレッドシートを参照して法人番号を補填する。
 
 動作:
-  1. NTAリストスプレッドシートから 会社名→法人番号 の辞書を構築
+  1. NTAリストスプレッドシートから 会社名→(法人番号, 法人名) の辞書を構築
   2. テレアポリストの各タブを処理し、法人番号が空の行を補填
 
 使い方:
@@ -31,30 +31,20 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# 「法人番号　リスト」スプレッドシートID（固定）
 NTA_LIST_ID = "1CrOizzpwy67tXuPy31imRugI0HD3EUtbx_-ocDe8As4"
 
-# テレアポリストの列インデックス（0始まり）
-COL_COMPANY = 0   # A列: 会社名
-COL_CORP_NUM = 1  # B列: 法人番号
-COL_ADDRESS = 2   # C列: 住所
-
-# NTAリストの列インデックス（0始まり）
-NTA_COL_NAME = 1   # 法人名
-NTA_COL_PREF = 3   # 都道府県
-NTA_COL_CITY = 4   # 市区町村
-NTA_COL_NUM = 7    # 法人番号
+NTA_COL_NAME = 1
+NTA_COL_NUM = 7
 
 
 def normalize(name: str) -> str:
-    """全角→半角、空白除去、小文字化で会社名を正規化。"""
     name = unicodedata.normalize("NFKC", name)
     name = "".join(name.split())
     return name.lower()
 
 
 def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
-    """法人番号リストの全シートから 正規化会社名→法人番号 の辞書を構築。"""
+    """法人番号リストの全シートから 正規化会社名→(法人番号, 法人名) の辞書を構築。"""
     lookup = {}
     worksheets = nta_ss.worksheets()
     logger.info(f"NTAリストのシート数: {len(worksheets)}")
@@ -64,7 +54,6 @@ def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
         rows = ws.get_all_values()
         if not rows:
             continue
-        # ヘッダー行を探す（「法人名」を含む行）
         start = 0
         for idx, row in enumerate(rows[:5]):
             if any("法人名" in cell for cell in row):
@@ -77,7 +66,7 @@ def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
                 name = row[NTA_COL_NAME].strip()
                 corp_num = row[NTA_COL_NUM].strip()
                 if name and corp_num:
-                    lookup[normalize(name)] = corp_num
+                    lookup[normalize(name)] = (corp_num, name)
                     count += 1
 
         logger.info(f"    → {count}件 (累計 {len(lookup)}件)")
@@ -86,10 +75,27 @@ def build_lookup(nta_ss: gspread.Spreadsheet) -> dict:
 
 
 def fill_tab(ws: gspread.Worksheet, lookup: dict) -> tuple:
-    """タブ内の法人番号空白行をlookupで補填。(found, missing) を返す。"""
+    """タブ内の法人番号空白行をlookupで補填。(found, missing) を返す。
+
+    旧フォーマット: A=会社名, B=法人番号, C=住所
+    新フォーマット: A=屋号,   B=法人名,   C=法人番号, D=住所
+    """
     header = ws.row_values(1)
-    if len(header) < 2 or header[1] != "法人番号":
-        logger.warning(f"タブ '{ws.title}': B列が「法人番号」でないためスキップ")
+    if not header:
+        return 0, 0
+
+    if len(header) >= 3 and header[2] == "法人番号":
+        col_company = 0
+        col_legal = 1
+        col_corp_num = 2
+        new_format = True
+    elif len(header) >= 2 and header[1] == "法人番号":
+        col_company = 0
+        col_legal = None
+        col_corp_num = 1
+        new_format = False
+    else:
+        logger.warning(f"タブ '{ws.title}': 法人番号列が見つからないためスキップ")
         return 0, 0
 
     all_values = ws.get_all_values()
@@ -102,17 +108,20 @@ def fill_tab(ws: gspread.Worksheet, lookup: dict) -> tuple:
     missing = 0
 
     for i, row in enumerate(all_values[1:], start=2):
-        corp_num = row[COL_CORP_NUM] if len(row) > COL_CORP_NUM else ""
+        corp_num = row[col_corp_num] if len(row) > col_corp_num else ""
         if corp_num.strip():
-            continue  # 既に入力済み
+            continue
 
-        company = row[COL_COMPANY] if len(row) > COL_COMPANY else ""
+        company = row[col_company] if len(row) > col_company else ""
         if not company.strip():
             continue
 
-        matched = lookup.get(normalize(company), "")
+        matched = lookup.get(normalize(company))
         if matched:
-            cell_updates.append(gspread.Cell(i, COL_CORP_NUM + 1, matched))
+            corp_num_val, legal_name = matched
+            cell_updates.append(gspread.Cell(i, col_corp_num + 1, corp_num_val))
+            if new_format and col_legal is not None and not (row[col_legal] if len(row) > col_legal else "").strip():
+                cell_updates.append(gspread.Cell(i, col_legal + 1, legal_name))
             found += 1
         else:
             missing += 1
@@ -134,7 +143,6 @@ def main():
     sa_email = info.get("client_email", "不明")
     logger.info(f"サービスアカウント: {sa_email}")
 
-    # 法人番号リスト読み込み
     logger.info(f"法人番号リスト ({NTA_LIST_ID}) を読み込み中...")
     try:
         nta_ss = client.open_by_key(NTA_LIST_ID)
@@ -153,7 +161,6 @@ def main():
     lookup = build_lookup(nta_ss)
     logger.info(f"辞書構築完了: {len(lookup):,}件")
 
-    # テレアポリスト更新
     raw_id = os.environ.get("GOOGLE_SPREADSHEET_ID", "").strip()
     m = re.search(r"/d/([A-Za-z0-9_-]{20,})", raw_id)
     sid = m.group(1) if m else raw_id

@@ -13,6 +13,9 @@ INDUSTRY_KEYWORDS = {
     "警備": "警備",
     "運輸": "運輸",
     "外食": "飲食",
+    "販売": "販売",
+    "介護": "介護",
+    "建設": "建設",
 }
 
 BASE_URL = "https://en-gage.net"
@@ -39,13 +42,11 @@ class EnEngageScraper(BaseScraper):
                 await page.goto(url, wait_until="domcontentloaded", timeout=30000)
                 await asyncio.sleep(10)  # SPA描画を十分待つ
 
-                # 結果件数ログ
                 count_text = await page.evaluate(
                     "() => { const s = document.querySelector('section'); return s ? s.innerText.substring(0,100) : ''; }"
                 )
                 logger.info(f"[enゲージ] section: {count_text[:80]}")
 
-                # 企業カード候補（優先順）
                 rows = await page.query_selector_all("li.row.row--company")
                 if not rows:
                     rows = await page.query_selector_all("[class*='row--company']")

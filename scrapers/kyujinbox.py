@@ -10,17 +10,17 @@ from scrapers.base import BaseScraper
 
 logger = logging.getLogger(__name__)
 
-# 求人ボックス求職者サイト (xn--pckua2a7gp15o89zb.com = 求人ボックス.com)
 BASE_URL = "https://xn--pckua2a7gp15o89zb.com"
 
 INDUSTRY_KEYWORDS = {
     "警備": "警備",
     "運輸": "ドライバー",
     "外食": "飲食",
+    "販売": "販売",
+    "介護": "介護",
+    "建設": "建設",
 }
 
-# 「電話番号：03-xxxx-xxxx」「TEL03-xxxx-xxxx」のようにラベル付きの番号だけ拾う
-# (無関係な番号を誤って拾わないため)
 LABELED_PHONE_RE = re.compile(r"(?:TEL|ＴＥＬ|電話番号|電話)[：:]?\s*(0\d{1,4}-\d{1,4}-\d{3,4})")
 UAID_RE = re.compile(r"[?&]uaid=([0-9a-z]+)")
 
@@ -76,7 +76,6 @@ class KyujinboxScraper(BaseScraper):
             if len(lines) < 2:
                 return None
 
-            # カード構造: [求人タイトル, 会社名, 勤務地(東京都〜), 給与, ...]
             company_name = lines[1]
             if not company_name or len(company_name) > 60 or "円" in company_name:
                 return None
@@ -84,7 +83,6 @@ class KyujinboxScraper(BaseScraper):
             address = next((l for l in lines if l.startswith("東京都")), "東京都")
             address = address.split(" / ")[0].strip()
 
-            # 詳細ページURL: カード内リンクの uaid から /jb/<uaid> を組み立てる
             detail_url = ""
             hrefs = await card.eval_on_selector_all(
                 "a[href*='uaid=']", "els => els.map(e => e.getAttribute('href'))"
@@ -110,7 +108,6 @@ class KyujinboxScraper(BaseScraper):
             return None
 
     async def enrich(self, context: BrowserContext, leads: list[Lead]) -> None:
-        """詳細ページから電話番号と番地までの住所を補完する"""
         targets = [l for l in leads if l.detail_url]
         logger.info(f"[求人BOX] 詳細ページ補完開始: {len(targets)}件")
         done = 0
@@ -143,7 +140,6 @@ class KyujinboxScraper(BaseScraper):
         logger.info(f"[求人BOX] 詳細ページ補完完了: {done}件中 電話番号 {found_phone}件")
 
     async def _extract_address(self, page) -> str:
-        """「勤務地・交通」欄から東京都の番地付き住所を取り出す"""
         try:
             addr = await page.evaluate(
                 """() => {

@@ -17,7 +17,7 @@ SCOPES = [
 ]
 
 SPREADSHEET_TITLE = "テレアポリスト"
-HEADER = ["会社名", "住所", "電話番号", "業種", "ソース", "収集日時"]
+HEADER = ["屋号", "法人名", "法人番号", "住所", "電話番号", "業種", "ソース", "収集日時"]
 
 
 def _get_client() -> gspread.Client:
@@ -34,7 +34,6 @@ def _get_client() -> gspread.Client:
 
 
 def _normalize_spreadsheet_id(raw: str) -> str:
-    """URL全体が貼られていてもIDだけを取り出す。前後の空白や引用符も除去する。"""
     raw = raw.strip().strip("\"'").strip()
     m = re.search(r"/d/([A-Za-z0-9_-]{20,})", raw)
     if m:
@@ -62,22 +61,19 @@ def _get_or_create_spreadsheet(client: gspread.Client) -> gspread.Spreadsheet:
                 raise CredentialsError(
                     "スプレッドシートを開く権限がありません。\n"
                     "  スプレッドシート右上の「共有」で、サービスアカウントの client_email\n"
-                    "  (〇〇@〇〇.iam.gserviceaccount.com) を「編集者」として追加してください。"
+                    "  (○○@○○.iam.gserviceaccount.com) を「編集者」として追加してください。"
                 ) from err
             raise
 
-    # 既存のスプレッドシートを検索
     try:
         return client.open(SPREADSHEET_TITLE)
     except gspread.SpreadsheetNotFound:
         pass
 
-    # 新規作成
     ss = client.create(SPREADSHEET_TITLE)
     logger.info(f"スプレッドシートを新規作成しました: {ss.url}")
     print(f"\n✅ スプレッドシートURL: {ss.url}\n")
 
-    # サービスアカウントが作成したシートは共有しないと人間が開けない
     share_email = os.environ.get("GOOGLE_SHARE_EMAIL")
     if share_email:
         ss.share(share_email, perm_type="user", role="writer", notify=True)
@@ -120,6 +116,8 @@ def write_leads(leads: list[Lead], dry_run: bool = False) -> str:
     rows = [
         [
             lead.company_name,
+            lead.legal_name or "",
+            lead.corporate_number or "",
             lead.address,
             lead.phone or "",
             lead.industry,

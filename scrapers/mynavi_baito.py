@@ -13,6 +13,9 @@ INDUSTRY_PATHS = {
     "警備": "keibi",
     "運輸": "unso",
     "外食": "gaishoku",
+    "販売": "hanbai",
+    "介護": "kaigo",
+    "建設": "kensetsu",
 }
 
 BASE_URL = "https://baito.mynavi.jp"
