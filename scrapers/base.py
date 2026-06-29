@@ -11,7 +11,7 @@ from utils.rate_limiter import polite_delay
 logger = logging.getLogger(__name__)
 
 INDUSTRIES = ["警備", "運輸", "外食"]
-TARGET_COUNT = 200
+TARGET_COUNT = 334
 
 
 class BaseScraper(ABC):

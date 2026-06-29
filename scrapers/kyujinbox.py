@@ -32,7 +32,7 @@ class KyujinboxScraper(BaseScraper):
         leads: list[Lead] = []
         keyword = INDUSTRY_KEYWORDS.get(industry, industry)
 
-        for page_no in range(1, 12):
+        for page_no in range(1, 21):
             if len(leads) >= self.per_industry:
                 break
 
