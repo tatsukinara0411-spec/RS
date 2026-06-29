@@ -746,7 +746,8 @@ function sendReminderNow() {
     SpreadsheetApp.getUi().alert("リマインド対象のラウンドが見つかりません。");
     return;
   }
-  const ssUrl = ss.getUrl();
+  const ssUrl      = ss.getUrl();
+  const dashboardUrl = "https://script.google.com/macros/s/AKfycbzdlrcAClF8-fvxlzG3S_6f_5qZspqE8bY9Hi42kqEmHoFVv2Cmg3McIOU3lT63NT-6ug/exec";
   let sentCount = 0;
   const start = ADMIN_MASTER_ROW + 2 - 1;
   const end   = ADMIN_RESULT_ROW - 1;
@@ -756,7 +757,7 @@ function sendReminderNow() {
     if (!name || !email || !email.includes("@")) continue;
     GmailApp.sendEmail(email,
       `⚽【TOTO】${nextRound.name}の賭け締切が近づいています！`,
-      `${name} さん\n\n${nextRound.name}の締切が近づいています！\n\n📋 賭けシートはこちら:\n${ssUrl}\n\n⏰ 締切: ${nextRound.deadline}\n💰「🎯賭け入力」タブを開いて、自分の列でチームを選択\n\n胴元: ${CFG.administrator}`
+      `${name} さん\n\n${nextRound.name}の締切が近づいています！\n\n📋 賭けシートはこちら:\n${ssUrl}\n\n🏆 順位・結果ダッシュボード:\n${dashboardUrl}\n\n⏰ 締切: ${nextRound.deadline}\n💰「🎯賭け入力」タブを開いて、自分の列でチームを選択\n\n胴元: ${CFG.administrator}`
     );
     sentCount++;
   }
