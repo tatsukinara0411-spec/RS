@@ -454,6 +454,14 @@
   </div>
 </div>
 
+<!-- 自動取得ボタン -->
+<div style="text-align:center;padding:12px 0;background:var(--navy2)">
+  <button id="btn-fetch-results" onclick="fetchAndSaveResults()"
+    style="background:#1a3a5c;color:#f0c040;border:1px solid #f0c040;padding:8px 24px;border-radius:8px;font-size:0.9rem;cursor:pointer;font-weight:bold;">
+    ⚡ 試合結果を自動取得
+  </button>
+</div>
+
 <!-- TAB NAV -->
 <nav class="tab-nav">
   <button class="tab-btn active" data-tab="ranking">🏆 ランキング</button>
@@ -558,6 +566,66 @@ const FLAGS = {
 };
 
 function flag(name) { return FLAGS[name] || "🏳️"; }
+
+// ============================
+// ESPN 試合結果自動取得
+// ============================
+const TEAM_NAME_MAP_EN = {
+  "South Africa":"南アフリカ","Canada":"カナダ","Brazil":"ブラジル","Japan":"日本",
+  "Germany":"ドイツ","Paraguay":"パラグアイ","Netherlands":"オランダ","Morocco":"モロッコ",
+  "Ivory Coast":"コートジボワール","Côte d'Ivoire":"コートジボワール","Norway":"ノルウェー",
+  "France":"フランス","Sweden":"スウェーデン","Mexico":"メキシコ","Ecuador":"エクアドル",
+  "England":"イングランド","DR Congo":"DRコンゴ","Congo DR":"DRコンゴ","Belgium":"ベルギー",
+  "Senegal":"セネガル","United States":"アメリカ","USA":"アメリカ",
+  "Bosnia and Herzegovina":"ボスニア・ヘルツェゴビナ","Bosnia & Herzegovina":"ボスニア・ヘルツェゴビナ",
+  "Spain":"スペイン","Austria":"オーストリア","Portugal":"ポルトガル","Croatia":"クロアチア",
+  "Switzerland":"スイス","Algeria":"アルジェリア","Australia":"オーストラリア",
+  "Egypt":"エジプト","Argentina":"アルゼンチン","Cape Verde":"カーボベルデ",
+  "Colombia":"コロンビア","Ghana":"ガーナ",
+};
+
+async function fetchAndSaveResults() {
+  const btn = document.getElementById("btn-fetch-results");
+  if (btn) { btn.textContent = "取得中..."; btn.disabled = true; }
+  try {
+    const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard");
+    const espn = await res.json();
+    const events = espn.events || [];
+    const results = [];
+    events.forEach(ev => {
+      const comp = ev.competitions && ev.competitions[0];
+      if (!comp || !comp.status?.type?.completed) return;
+      const comps = comp.competitors || [];
+      if (comps.length < 2) return;
+      const home = comps.find(c => c.homeAway === "home") || comps[0];
+      const away = comps.find(c => c.homeAway === "away") || comps[1];
+      const nameA = TEAM_NAME_MAP_EN[home.team.displayName] || home.team.displayName;
+      const nameB = TEAM_NAME_MAP_EN[away.team.displayName] || away.team.displayName;
+      const scoreA = parseInt(home.score || 0);
+      const scoreB = parseInt(away.score || 0);
+      const winnerComp = comps.find(c => c.winner);
+      const winner = winnerComp
+        ? (TEAM_NAME_MAP_EN[winnerComp.team.displayName] || winnerComp.team.displayName)
+        : (scoreA > scoreB ? nameA : scoreB > scoreA ? nameB : null);
+      if (winner) results.push({ teamA: nameA, teamB: nameB, scoreA, scoreB, winner });
+    });
+    if (results.length === 0) {
+      alert("終了した試合がまだありません。");
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(r => {
+        alert(`✅ ${r.updated}試合の結果を更新しました！`);
+        loadData();
+      })
+      .withFailureHandler(e => alert("保存エラー: " + e.message))
+      .saveMatchResults(results);
+  } catch(e) {
+    alert("ESPN APIの取得に失敗しました: " + e.message);
+  } finally {
+    if (btn) { btn.textContent = "⚡ 試合結果を自動取得"; btn.disabled = false; }
+  }
+}
 
 // ============================
 // タブ切替

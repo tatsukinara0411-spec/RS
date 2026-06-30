@@ -734,6 +734,35 @@ function columnToLetter(col) {
 }
 
 // リマインドメール送信
+// ブラウザ側から試合結果を受け取ってスプシに保存
+// ============================
+function saveMatchResults(results) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const adminSheet = ss.getSheetByName("⚙️管理");
+  if (!adminSheet) return { ok: false, error: "⚙️管理シートが見つかりません" };
+
+  const data = adminSheet.getDataRange().getValues();
+  let updatedCount = 0;
+
+  results.forEach(r => {
+    for (let i = ADMIN_RESULT_ROW - 1; i < data.length; i++) {
+      const teamA = String(data[i][2] || "").trim();
+      const teamB = String(data[i][3] || "").trim();
+      if (!teamA || teamA === "TBD") continue;
+      if (teamA !== r.teamA || teamB !== r.teamB) continue;
+      const row = i + 1;
+      if (r.scoreA !== null) adminSheet.getRange(row, 5).setValue(r.scoreA);
+      if (r.scoreB !== null) adminSheet.getRange(row, 6).setValue(r.scoreB);
+      if (r.winner)          adminSheet.getRange(row, 7).setValue(r.winner);
+      updatedCount++;
+      break;
+    }
+  });
+
+  if (updatedCount > 0) updateAdminView();
+  return { ok: true, updated: updatedCount };
+}
+
 // ============================
 function sendReminderNow() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
