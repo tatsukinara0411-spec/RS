@@ -512,7 +512,7 @@ function onEditLockBet(e) {
 // ============================
 // 胴元ビュー更新
 // ============================
-function updateAdminView() {
+function updateAdminView(silent) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const adminSheet = ss.getSheetByName("⚙️管理");
   const betSheet   = ss.getSheetByName("🎯賭け入力");
@@ -676,7 +676,7 @@ function updateAdminView() {
   // 賭け入力シートの的中数・獲得金額も更新
   updateBetSheetResults(ss, betSheet, stats);
 
-  SpreadsheetApp.getUi().alert("✅ 胴元ビューを更新しました！\n賭け入力シートの的中数・獲得金額も更新しました。");
+  if (!silent) SpreadsheetApp.getUi().alert("✅ 胴元ビューを更新しました！\n賭け入力シートの的中数・獲得金額も更新しました。");
 }
 
 // ============================
@@ -759,7 +759,7 @@ function saveMatchResults(results) {
     }
   });
 
-  if (updatedCount > 0) updateAdminView();
+  if (updatedCount > 0) updateAdminView(true);
   return { ok: true, updated: updatedCount };
 }
 
