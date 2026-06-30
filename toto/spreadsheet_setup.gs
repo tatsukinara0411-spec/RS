@@ -143,6 +143,8 @@ function onOpen() {
     .addSeparator()
     .addItem("📊 胴元ビューを更新", "updateAdminView")
     .addSeparator()
+    .addItem("⚡ 試合結果を自動取得", "fetchMatchResults")
+    .addSeparator()
     .addItem("📢 リマインドメール送信", "sendReminderNow")
     .addToUi();
 }
@@ -734,6 +736,121 @@ function columnToLetter(col) {
 }
 
 // ============================
+// 英語→日本語チーム名マッピング
+// ============================
+const TEAM_NAME_MAP = {
+  "South Africa": "南アフリカ",
+  "Canada": "カナダ",
+  "Brazil": "ブラジル",
+  "Japan": "日本",
+  "Germany": "ドイツ",
+  "Paraguay": "パラグアイ",
+  "Netherlands": "オランダ",
+  "Morocco": "モロッコ",
+  "Ivory Coast": "コートジボワール",
+  "Côte d'Ivoire": "コートジボワール",
+  "Norway": "ノルウェー",
+  "France": "フランス",
+  "Sweden": "スウェーデン",
+  "Mexico": "メキシコ",
+  "Ecuador": "エクアドル",
+  "England": "イングランド",
+  "DR Congo": "DRコンゴ",
+  "Congo DR": "DRコンゴ",
+  "Belgium": "ベルギー",
+  "Senegal": "セネガル",
+  "United States": "アメリカ",
+  "USA": "アメリカ",
+  "Bosnia and Herzegovina": "ボスニア・ヘルツェゴビナ",
+  "Bosnia & Herzegovina": "ボスニア・ヘルツェゴビナ",
+  "Spain": "スペイン",
+  "Austria": "オーストリア",
+  "Portugal": "ポルトガル",
+  "Croatia": "クロアチア",
+  "Switzerland": "スイス",
+  "Algeria": "アルジェリア",
+  "Australia": "オーストラリア",
+  "Egypt": "エジプト",
+  "Argentina": "アルゼンチン",
+  "Cape Verde": "カーボベルデ",
+  "Colombia": "コロンビア",
+  "Ghana": "ガーナ",
+};
+
+// ESPN APIから試合結果を自動取得して⚙️管理シートに反映
+// ============================
+function fetchMatchResults() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const adminSheet = ss.getSheetByName("⚙️管理");
+  if (!adminSheet) {
+    SpreadsheetApp.getUi().alert("⚙️管理シートが見つかりません。");
+    return;
+  }
+
+  // ESPNのFIFAワールドカップスコアボードAPI（無料・認証不要）
+  let espnData;
+  try {
+    const response = UrlFetchApp.fetch(
+      "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard",
+      { muteHttpExceptions: true }
+    );
+    espnData = JSON.parse(response.getContentText());
+  } catch (e) {
+    SpreadsheetApp.getUi().alert("APIの取得に失敗しました: " + e.message);
+    return;
+  }
+
+  const events = espnData.events || [];
+  // 完了した試合のみ: status.type.completed === true
+  const resultMap = {}; // "チームA vs チームB" → 勝者日本語名
+  events.forEach(ev => {
+    const comp = ev.competitions && ev.competitions[0];
+    if (!comp) return;
+    if (!comp.status || !comp.status.type || !comp.status.type.completed) return;
+    const competitors = comp.competitors || [];
+    if (competitors.length < 2) return;
+    const teamA = competitors.find(c => c.homeAway === "home") || competitors[0];
+    const teamB = competitors.find(c => c.homeAway === "away") || competitors[1];
+    const nameA_en = teamA.team.displayName || teamA.team.name;
+    const nameB_en = teamB.team.displayName || teamB.team.name;
+    const nameA = TEAM_NAME_MAP[nameA_en] || nameA_en;
+    const nameB = TEAM_NAME_MAP[nameB_en] || nameB_en;
+    const scoreA = parseInt(teamA.score || 0);
+    const scoreB = parseInt(teamB.score || 0);
+    // PK決着の場合も考慮（winner フラグで判定）
+    const winnerTeam = competitors.find(c => c.winner);
+    const winner = winnerTeam
+      ? (TEAM_NAME_MAP[winnerTeam.team.displayName] || TEAM_NAME_MAP[winnerTeam.team.name] || winnerTeam.team.displayName)
+      : (scoreA > scoreB ? nameA : scoreB > scoreA ? nameB : null);
+    if (winner) resultMap[`${nameA}|${nameB}`] = { scoreA, scoreB, winner };
+  });
+
+  // ⚙️管理シートの結果セクションを更新
+  const data = adminSheet.getDataRange().getValues();
+  let updatedCount = 0;
+  for (let i = ADMIN_RESULT_ROW - 1; i < data.length; i++) {
+    const id    = String(data[i][0] || "").trim();
+    const teamA = String(data[i][2] || "").trim();
+    const teamB = String(data[i][3] || "").trim();
+    if (!id || !teamA || !teamB || teamA === "TBD") continue;
+    const key = `${teamA}|${teamB}`;
+    const res = resultMap[key];
+    if (!res) continue;
+    const row = i + 1;
+    adminSheet.getRange(row, 5).setValue(res.scoreA);
+    adminSheet.getRange(row, 6).setValue(res.scoreB);
+    adminSheet.getRange(row, 7).setValue(res.winner);
+    updatedCount++;
+  }
+
+  if (updatedCount > 0) {
+    updateAdminView();
+    SpreadsheetApp.getUi().alert(`✅ ${updatedCount}試合の結果を更新しました！\n胴元ビューも自動更新しました。`);
+  } else {
+    SpreadsheetApp.getUi().alert("現時点で取得できた結果はありませんでした。\n試合終了後に再試行してください。");
+  }
+}
+
 // リマインドメール送信
 // ============================
 function sendReminderNow() {
