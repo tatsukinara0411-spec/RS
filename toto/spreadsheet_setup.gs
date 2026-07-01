@@ -713,15 +713,17 @@ function updateBetSheetResults(ss, betSheet, stats) {
 // ユーティリティ
 // ============================
 function getParticipantList(ss) {
-  const adminSheet = ss.getSheetByName("⚙️管理");
-  if (!adminSheet) return [];
-  const data = adminSheet.getDataRange().getValues();
+  const betSheet = ss.getSheetByName("🎯賭け入力") || ss.getSheetByName("賭け入力");
+  if (!betSheet) return [];
+  const lastCol = betSheet.getLastColumn();
+  if (lastCol < 2) return [];
+  const headerRow = betSheet.getRange(BET_HEADER_ROW, 1, 1, lastCol).getValues()[0];
   const participants = [];
-  const start = ADMIN_MASTER_ROW + 2 - 1; // 0-indexed
-  const end   = ADMIN_RESULT_ROW - 1;
-  for (let i = start; i < Math.min(end, data.length); i++) {
-    const name = String(data[i][0] || "").trim();
-    if (name && !name.startsWith("（")) participants.push(name);
+  // Col A = ラウンド, Col B = 試合ID, Col C = 対戦カード, Col D = 締切, Col E+ = 参加者名
+  const SKIP_COLS = 4; // skip first 4 columns
+  for (let i = SKIP_COLS; i < headerRow.length; i++) {
+    const name = String(headerRow[i] || "").trim();
+    if (name && !name.includes("/") && !name.startsWith("（")) participants.push(name);
   }
   return participants;
 }
