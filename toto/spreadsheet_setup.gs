@@ -141,6 +141,7 @@ function onOpen() {
     .addItem("🔧 初回セットアップ", "setupAll")
     .addItem("🔄 賭け入力シートを再生成", "rebuildBetSheet")
     .addSeparator()
+    .addItem("📋 結果入力シートを作成（データ消えません）", "addResultSheetOnly")
     .addItem("📊 胴元ビューを更新", "updateAdminView")
     .addSeparator()
     .addItem("📢 リマインドメール送信", "sendReminderNow")
@@ -390,6 +391,17 @@ function rebuildBetSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   setupBetSheet(ss);
   SpreadsheetApp.getUi().alert("✅ 賭け入力シートを再生成しました！（既存の賭けデータは引き継がれています）");
+}
+
+function addResultSheetOnly() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const existing = ss.getSheetByName("📋結果入力");
+  if (existing) {
+    SpreadsheetApp.getUi().alert("📋結果入力シートはすでに存在します。\n既存のデータはそのままです。");
+    return;
+  }
+  setupResultSheet(ss);
+  SpreadsheetApp.getUi().alert("✅ 📋結果入力シートを作成しました！\n賭けデータは一切変更されていません。");
 }
 
 // ============================
