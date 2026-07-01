@@ -808,28 +808,43 @@ function doGet(e) {
 }
 
 function getPublicData(ss) {
-  const adminSheet = ss.getSheetByName("⚙️管理");
-  const betSheet   = ss.getSheetByName("🎯賭け入力");
+  const adminSheet  = ss.getSheetByName("⚙️管理");
+  const betSheet    = ss.getSheetByName("🎯賭け入力");
+  // 結果入力シートが別にある場合はそちらを優先
+  const resultSheet = ss.getSheetByName("結果入力") || adminSheet;
 
   const participants = getParticipantList(ss);
-  const adminData    = adminSheet.getDataRange().getValues();
-  const matches      = [];
-  const winnerMap    = {};
+  const resultData   = resultSheet.getDataRange().getValues();
 
-  for (let i = ADMIN_RESULT_ROW; i < adminData.length; i++) {
-    const id = String(adminData[i][0] || "").trim();
-    if (!id || id.startsWith("──") || id.startsWith("【") || id.startsWith("←")) continue;
-    const roundId = adminData[i][1];
-    const teamA   = adminData[i][2];
-    const teamB   = adminData[i][3];
-    const scoreA  = adminData[i][4];
-    const scoreB  = adminData[i][5];
-    const winner  = adminData[i][6] || null;
-    if (roundId && teamA && !String(teamA).startsWith("──")) {
-      matches.push({ id, round: roundId, teamA, teamB, scoreA: scoreA || null, scoreB: scoreB || null, winner });
-      if (winner) winnerMap[id] = winner;
-    }
+  // 結果入力シートからmatchId→{scoreA,scoreB,winner}マップを作成
+  const resultMap = {};
+  for (let i = 0; i < resultData.length; i++) {
+    const id     = String(resultData[i][0] || "").trim();
+    const teamA  = String(resultData[i][2] || "").trim();
+    const winner = String(resultData[i][6] || "").trim();
+    if (!id || !teamA || teamA === "チームA" || teamA === "TBD") continue;
+    resultMap[id] = {
+      scoreA: resultData[i][4] || null,
+      scoreB: resultData[i][5] || null,
+      winner: winner || null,
+    };
   }
+
+  // ROUNDSを正とした試合リストを生成
+  const matches   = [];
+  const winnerMap = {};
+  ROUNDS.forEach(round => {
+    round.matches.forEach(match => {
+      const res = resultMap[match.id] || {};
+      const winner = res.winner || null;
+      matches.push({
+        id: match.id, round: round.id,
+        teamA: match.teamA, teamB: match.teamB,
+        scoreA: res.scoreA || null, scoreB: res.scoreB || null, winner,
+      });
+      if (winner) winnerMap[match.id] = winner;
+    });
+  });
 
   const betData      = betSheet.getDataRange().getValues();
   const betHeaderRow = betData[BET_HEADER_ROW - 1];
