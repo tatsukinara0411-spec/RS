@@ -63,22 +63,22 @@ const ROUNDS = [
     id: "R32", name: "ラウンド32",
     deadline: "2026-07-03 22:00",
     matches: [
-      { id: "R32-01", teamA: "ブラジル",    teamB: "セネガル",        deadline: "2026-06-28 22:00" },
-      { id: "R32-02", teamA: "フランス",    teamB: "モロッコ",        deadline: "2026-06-28 22:00" },
-      { id: "R32-03", teamA: "スペイン",    teamB: "メキシコ",        deadline: "2026-06-29 22:00" },
-      { id: "R32-04", teamA: "アルゼンチン",teamB: "オーストラリア",  deadline: "2026-06-29 22:00" },
-      { id: "R32-05", teamA: "イングランド",teamB: "スイス",          deadline: "2026-06-29 22:00" },
-      { id: "R32-06", teamA: "ドイツ",      teamB: "デンマーク",      deadline: "2026-06-30 22:00" },
-      { id: "R32-07", teamA: "ポルトガル",  teamB: "チュニジア",      deadline: "2026-06-30 22:00" },
-      { id: "R32-08", teamA: "オランダ",    teamB: "韓国",            deadline: "2026-06-30 22:00" },
-      { id: "R32-09", teamA: "ベルギー",    teamB: "カナダ",          deadline: "2026-07-01 22:00" },
-      { id: "R32-10", teamA: "クロアチア",  teamB: "チリ",            deadline: "2026-07-01 22:00" },
-      { id: "R32-11", teamA: "ウルグアイ",  teamB: "ガーナ",          deadline: "2026-07-01 22:00" },
-      { id: "R32-12", teamA: "アメリカ",    teamB: "ナイジェリア",    deadline: "2026-07-02 22:00" },
-      { id: "R32-13", teamA: "日本",        teamB: "ポーランド",      deadline: "2026-07-02 22:00" },
-      { id: "R32-14", teamA: "コロンビア",  teamB: "コートジボワール",deadline: "2026-07-02 22:00" },
-      { id: "R32-15", teamA: "エクアドル",  teamB: "セルビア",        deadline: "2026-07-03 22:00" },
-      { id: "R32-16", teamA: "スウェーデン",teamB: "カメルーン",      deadline: "2026-07-03 22:00" },
+      { id: "R32-01", teamA: "南アフリカ",             teamB: "カナダ",                 deadline: "2026-06-28 22:00" },
+      { id: "R32-02", teamA: "ブラジル",               teamB: "日本",                   deadline: "2026-06-29 22:00" },
+      { id: "R32-03", teamA: "ドイツ",                 teamB: "パラグアイ",             deadline: "2026-06-29 22:00" },
+      { id: "R32-04", teamA: "オランダ",               teamB: "モロッコ",               deadline: "2026-06-29 22:00" },
+      { id: "R32-05", teamA: "コートジボワール",        teamB: "ノルウェー",             deadline: "2026-06-30 22:00" },
+      { id: "R32-06", teamA: "フランス",               teamB: "スウェーデン",           deadline: "2026-06-30 22:00" },
+      { id: "R32-07", teamA: "メキシコ",               teamB: "エクアドル",             deadline: "2026-06-30 22:00" },
+      { id: "R32-08", teamA: "イングランド",            teamB: "DRコンゴ",               deadline: "2026-07-01 22:00" },
+      { id: "R32-09", teamA: "ベルギー",               teamB: "セネガル",               deadline: "2026-07-01 22:00" },
+      { id: "R32-10", teamA: "アメリカ",               teamB: "ボスニア・ヘルツェゴビナ",deadline: "2026-07-01 22:00" },
+      { id: "R32-11", teamA: "スペイン",               teamB: "オーストリア",           deadline: "2026-07-02 22:00" },
+      { id: "R32-12", teamA: "ポルトガル",              teamB: "クロアチア",             deadline: "2026-07-02 22:00" },
+      { id: "R32-13", teamA: "スイス",                 teamB: "アルジェリア",           deadline: "2026-07-02 22:00" },
+      { id: "R32-14", teamA: "オーストラリア",          teamB: "エジプト",               deadline: "2026-07-03 22:00" },
+      { id: "R32-15", teamA: "アルゼンチン",            teamB: "カーボベルデ",           deadline: "2026-07-03 22:00" },
+      { id: "R32-16", teamA: "コロンビア",              teamB: "ガーナ",                 deadline: "2026-07-03 22:00" },
     ]
   },
   {
@@ -395,39 +395,50 @@ function rebuildBetSheet() {
 
 function addResultSheetOnly() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const existing = ss.getSheetByName("📋結果入力");
-  if (existing) {
-    SpreadsheetApp.getUi().alert("📋結果入力シートはすでに存在します。\n既存のデータはそのままです。");
-    return;
-  }
-  setupResultSheet(ss);
-  SpreadsheetApp.getUi().alert("✅ 📋結果入力シートを作成しました！\n賭けデータは一切変更されていません。");
+  rebuildResultSheet(ss);
+  SpreadsheetApp.getUi().alert("✅ 📋結果入力シートを更新しました！\n入力済みスコアは引き継がれています。\n賭けデータは一切変更されていません。");
 }
 
-// ============================
-// 結果入力シート（独立シート）
-// ============================
-function setupResultSheet(ss) {
-  let sheet = ss.getSheetByName("📋結果入力");
-  if (!sheet) {
-    sheet = ss.insertSheet("📋結果入力");
-  } else {
-    // ヘッダーだけ残してデータ行はそのまま（スコアが消えないよう）
-    return sheet;
+// 既存のスコアを保持しつつ結果入力シートを正しいROUNDSデータで再構築
+function rebuildResultSheet(ss) {
+  const existing = ss.getSheetByName("📋結果入力") || ss.getSheetByName("結果入力");
+
+  // 既存スコアをmatchId単位で退避
+  const savedScores = {};
+  if (existing) {
+    const data = existing.getDataRange().getValues();
+    for (let i = 0; i < data.length; i++) {
+      const id = String(data[i][0] || "").trim();
+      if (!id.match(/^(R32|R16|QF|SF|Final)-\d{2}$/)) continue;
+      const scoreA = data[i][4];
+      const scoreB = data[i][5];
+      const manual = String(data[i][7] || "").trim();
+      if (scoreA !== "" || scoreB !== "" || manual) {
+        savedScores[id] = { scoreA, scoreB, manual };
+      }
+    }
+    ss.deleteSheet(existing);
   }
+
+  // 新しいシートを作成
+  const sheet = ss.insertSheet("📋結果入力");
   sheet.setTabColor("#1565c0");
 
   sheet.getRange(1, 1, 1, 8).merge()
-    .setValue("📋 結果入力 — 試合終了後にスコアを入力（H列の勝者は自動計算）")
+    .setValue("📋 結果入力 — スコアを入力するとG列の勝者が自動計算されます")
     .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
-
-  sheet.getRange(2, 1, 1, 8).setValues([["試合ID","ラウンド","チームA","チームB","スコアA","スコアB","勝者（自動）","手動上書き（PKなど）"]])
+  sheet.getRange(2, 1, 1, 8)
+    .setValues([["試合ID","ラウンド","チームA","チームB","スコアA","スコアB","勝者（自動）","手動上書き（PKなど）"]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
 
   let r = 3;
   ROUNDS.forEach(round => {
     round.matches.forEach(match => {
+      const saved = savedScores[match.id] || {};
       sheet.getRange(r, 1, 1, 4).setValues([[match.id, round.id, match.teamA, match.teamB]]);
+      if (saved.scoreA !== undefined && saved.scoreA !== "") sheet.getRange(r, 5).setValue(saved.scoreA);
+      if (saved.scoreB !== undefined && saved.scoreB !== "") sheet.getRange(r, 6).setValue(saved.scoreB);
+      if (saved.manual) sheet.getRange(r, 8).setValue(saved.manual);
       sheet.getRange(r, 7)
         .setFormula(`=IF(AND(E${r}<>"",F${r}<>""),IF(E${r}>F${r},C${r},IF(E${r}<F${r},D${r},"PK")),"")`)
         .setBackground("#e8f5e9");
@@ -435,12 +446,16 @@ function setupResultSheet(ss) {
     });
   });
 
-  sheet.setColumnWidth(1, 80);
-  sheet.setColumnWidth(3, 160);
-  sheet.setColumnWidth(4, 180);
-  sheet.setColumnWidth(7, 160);
-  sheet.setColumnWidth(8, 200);
+  sheet.setColumnWidth(1, 90); sheet.setColumnWidth(3, 160);
+  sheet.setColumnWidth(4, 200); sheet.setColumnWidth(7, 160); sheet.setColumnWidth(8, 200);
   return sheet;
+}
+
+// ============================
+// 結果入力シート（独立シート）
+// ============================
+function setupResultSheet(ss) {
+  return rebuildResultSheet(ss);
 }
 
 function getResultSheet(ss) {
@@ -842,9 +857,10 @@ function saveMatchResults(results) {
 
   let updatedCount = 0;
   results.forEach(r => {
-    // まずteam名でマッチする行を探す（ESPNのデータはmatchIdを持たない）
-    const key = `${r.teamA}|${r.teamB}`;
-    const row = rowByTeams[key];
+    // チーム名でマッチ（home/awayが逆の場合も考慮）
+    const key  = `${r.teamA}|${r.teamB}`;
+    const keyR = `${r.teamB}|${r.teamA}`;
+    const row = rowByTeams[key] || rowByTeams[keyR];
     if (!row) return;
     if (r.scoreA !== null) resultSheet.getRange(row, 5).setValue(r.scoreA);
     if (r.scoreB !== null) resultSheet.getRange(row, 6).setValue(r.scoreB);
