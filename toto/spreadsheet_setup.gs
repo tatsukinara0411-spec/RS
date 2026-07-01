@@ -516,7 +516,7 @@ function updateAdminView(silent) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const adminSheet = ss.getSheetByName("⚙️管理") || ss.getSheetByName("管理");
   // 胴元ビューシートが別にある場合はそちらに書き込む
-  const viewSheet  = ss.getSheetByName("胴元ビュー") || adminSheet;
+  const viewSheet  = ss.getSheets().find(s => s.getName().includes("胴元ビュー")) || adminSheet;
   const betSheet   = ss.getSheetByName("🎯賭け入力") || ss.getSheetByName("賭け入力");
 
   if (!betSheet) {
