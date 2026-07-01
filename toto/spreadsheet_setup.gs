@@ -514,18 +514,19 @@ function onEditLockBet(e) {
 // ============================
 function updateAdminView(silent) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const adminSheet = ss.getSheetByName("⚙️管理");
-  const betSheet   = ss.getSheetByName("🎯賭け入力");
+  const adminSheet = ss.getSheetByName("⚙️管理") || ss.getSheetByName("管理");
+  // 胴元ビューシートが別にある場合はそちらに書き込む
+  const viewSheet  = ss.getSheetByName("胴元ビュー") || adminSheet;
+  const betSheet   = ss.getSheetByName("🎯賭け入力") || ss.getSheetByName("賭け入力");
 
-  if (!adminSheet || !betSheet) {
-    SpreadsheetApp.getUi().alert("❌ シートが見つかりません。setupAllを実行してください。");
+  if (!betSheet) {
+    if (!silent) SpreadsheetApp.getUi().alert("❌ 賭け入力シートが見つかりません。");
     return;
   }
 
-  const lastRow = adminSheet.getLastRow();
-  if (lastRow >= ADMIN_VIEW_ROW) {
-    adminSheet.getRange(ADMIN_VIEW_ROW, 1, lastRow - ADMIN_VIEW_ROW + 1, 15).clearContent().clearFormat();
-  }
+  // 胴元ビューシートをクリア
+  viewSheet.clearContents();
+  viewSheet.clearFormats();
 
   const participants = getParticipantList(ss);
   const betData = betSheet.getDataRange().getValues();
@@ -533,15 +534,20 @@ function updateAdminView(silent) {
   const oddsMap = {};
   TEAMS.forEach(t => { oddsMap[t.name] = t.odds; });
 
-  const adminData = adminSheet.getDataRange().getValues();
+  // 結果入力シートから勝者を取得
+  const resultSheet2 = ss.getSheetByName("結果入力") || adminSheet;
+  const resultData2  = resultSheet2.getDataRange().getValues();
   const winnerMap = {};
   const matchTeamsMap = {};
-  for (let i = ADMIN_RESULT_ROW; i < adminData.length; i++) {
-    const id = String(adminData[i][0] || "").trim();
-    if (!id || id.startsWith("──") || id.startsWith("【") || id.startsWith("←")) continue;
-    const winner = adminData[i][6];
-    matchTeamsMap[id] = { teamA: adminData[i][2], teamB: adminData[i][3] };
-    if (winner && winner !== "") winnerMap[id] = winner;
+  ROUNDS.forEach(round => {
+    round.matches.forEach(match => {
+      matchTeamsMap[match.id] = { teamA: match.teamA, teamB: match.teamB };
+    });
+  });
+  for (let i = 0; i < resultData2.length; i++) {
+    const id     = String(resultData2[i][0] || "").trim();
+    const winner = String(resultData2[i][6] || "").trim();
+    if (id && winner) winnerMap[id] = winner;
   }
 
   function getFavorite(matchId) {
@@ -573,19 +579,19 @@ function updateAdminView(silent) {
     return { name, totalBet, totalPayout, hitCount, betsByRound, over: totalBet > CFG.maxBudget };
   });
 
-  let row = ADMIN_VIEW_ROW;
+  let row = 1;
 
-  adminSheet.getRange(row, 1, 1, 10).merge()
-    .setValue("【3】📊 胴元ビュー　最終更新: " + new Date().toLocaleString("ja-JP"))
+  viewSheet.getRange(row, 1, 1, 11).merge()
+    .setValue("📊 胴元ビュー　最終更新: " + new Date().toLocaleString("ja-JP"))
     .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
   row++;
 
   // 参加者別集計
-  adminSheet.getRange(row, 1, 1, 10).merge()
+  viewSheet.getRange(row, 1, 1, 11).merge()
     .setValue("▶ 参加者別 賭け状況")
     .setBackground("#0d2137").setFontColor("#8ab4d8").setFontWeight("bold");
   row++;
-  adminSheet.getRange(row, 1, 1, 11)
+  viewSheet.getRange(row, 1, 1, 11)
     .setValues([["名前","合計使用額","獲得金額","損益","上限超過？","的中数","R32","R16","QF","SF/決勝","状況"]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
@@ -594,26 +600,26 @@ function updateAdminView(silent) {
     const net = s.totalPayout - s.totalBet;
     const netStr = net > 0 ? `+${net}円` : `${net}円`;
     const status = s.hitCount === 0 ? "未的中" : net > 0 ? "✅ 黒字" : "🔴 赤字";
-    adminSheet.getRange(row, 1, 1, 11).setValues([[
+    viewSheet.getRange(row, 1, 1, 11).setValues([[
       s.name, `${s.totalBet}円`, `${s.totalPayout}円`, netStr,
       s.over ? "⚠️ 超過！" : "OK", s.hitCount,
       s.betsByRound["R32"] || 0, s.betsByRound["R16"] || 0,
       s.betsByRound["QF"]  || 0, sfFinal, status
     ]]);
-    adminSheet.getRange(row, 4).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
-    adminSheet.getRange(row, 5).setFontColor(s.over ? "#ef5350" : "#00e676").setFontWeight("bold");
-    adminSheet.getRange(row, 11).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
+    viewSheet.getRange(row, 4).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
+    viewSheet.getRange(row, 5).setFontColor(s.over ? "#ef5350" : "#00e676").setFontWeight("bold");
+    viewSheet.getRange(row, 11).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
     row++;
   });
 
   row += 2;
 
   // SIM
-  adminSheet.getRange(row, 1, 1, participants.length + 3).merge()
+  viewSheet.getRange(row, 1, 1, participants.length + 3).merge()
     .setValue("▶ SIM — このチームが勝ったら誰が何円獲得？")
     .setBackground("#0d2137").setFontColor("#8ab4d8").setFontWeight("bold");
   row++;
-  adminSheet.getRange(row, 1, 1, participants.length + 3)
+  viewSheet.getRange(row, 1, 1, participants.length + 3)
     .setValues([["ラウンド", "試合ID", "もし勝者が…", ...participants]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
@@ -634,12 +640,12 @@ function updateAdminView(silent) {
           const bet = colIdx >= 0 ? String(betRow[colIdx] || "").trim() : "";
           simRow.push(bet === team ? `+${Math.round(CFG.betUnit * mult)}円` : bet !== "" ? "ハズレ" : "-");
         });
-        adminSheet.getRange(row, 1, 1, simRow.length).setValues([simRow]);
+        viewSheet.getRange(row, 1, 1, simRow.length).setValues([simRow]);
         const bg = (mi * 2 + ti) % 2 === 0 ? "#0d2137" : "#0a1628";
-        adminSheet.getRange(row, 1, 1, simRow.length).setBackground(bg);
+        viewSheet.getRange(row, 1, 1, simRow.length).setBackground(bg);
         for (let j = 0; j < participants.length; j++) {
           const v = simRow[j + 3];
-          adminSheet.getRange(row, j + 4)
+          viewSheet.getRange(row, j + 4)
             .setFontColor(String(v).startsWith("+") ? "#00e676" : v === "ハズレ" ? "#ef5350" : "#555555")
             .setFontWeight(String(v).startsWith("+") ? "bold" : "normal")
             .setHorizontalAlignment("center");
@@ -652,11 +658,11 @@ function updateAdminView(silent) {
   row += 2;
 
   // ランキング
-  adminSheet.getRange(row, 1, 1, 5).merge()
+  viewSheet.getRange(row, 1, 1, 5).merge()
     .setValue("▶ ランキング（結果入力後に反映）")
     .setBackground("#0d2137").setFontColor("#8ab4d8").setFontWeight("bold");
   row++;
-  adminSheet.getRange(row, 1, 1, 5)
+  viewSheet.getRange(row, 1, 1, 5)
     .setValues([["順位","名前","獲得金額","的中数","賞金予測"]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
@@ -666,14 +672,14 @@ function updateAdminView(silent) {
   [...stats].sort((a, b) => b.totalPayout - a.totalPayout).forEach((s, i) => {
     const rank  = i + 1;
     const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
-    adminSheet.getRange(row, 1, 1, 5).setValues([
+    viewSheet.getRange(row, 1, 1, 5).setValues([
       [medal, s.name, `${s.totalPayout}円`, s.hitCount, rank <= 3 ? `${prizes[rank-1]}円` : "-"]
     ]);
     const bg = rank === 1 ? "#fff8dc" : rank === 2 ? "#f5f5f5" : rank === 3 ? "#fde8d0" : null;
-    if (bg) adminSheet.getRange(row, 1, 1, 5).setBackground(bg);
+    if (bg) viewSheet.getRange(row, 1, 1, 5).setBackground(bg);
     row++;
   });
-  adminSheet.getRange(row + 1, 1)
+  viewSheet.getRange(row + 1, 1)
     .setValue(`賞金プール: ${prizePool.toLocaleString()}円（全賭け金の80%）`)
     .setFontColor("#8ab4d8").setFontStyle("italic");
 
