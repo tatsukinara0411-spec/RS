@@ -61,24 +61,24 @@ const TEAMS = [
 const ROUNDS = [
   {
     id: "R32", name: "ラウンド32",
-    deadline: "2026-06-28 22:00",
+    deadline: "2026-07-03 22:00",
     matches: [
-      { id: "R32-01", teamA: "南アフリカ",            teamB: "カナダ",                deadline: "2026-06-28 22:00" },
-      { id: "R32-02", teamA: "ブラジル",              teamB: "日本",                  deadline: "2026-06-29 22:00" },
-      { id: "R32-03", teamA: "ドイツ",                teamB: "パラグアイ",            deadline: "2026-06-29 22:00" },
-      { id: "R32-04", teamA: "オランダ",              teamB: "モロッコ",              deadline: "2026-06-29 22:00" },
-      { id: "R32-05", teamA: "コートジボワール",      teamB: "ノルウェー",            deadline: "2026-06-30 22:00" },
-      { id: "R32-06", teamA: "フランス",              teamB: "スウェーデン",          deadline: "2026-06-30 22:00" },
-      { id: "R32-07", teamA: "メキシコ",              teamB: "エクアドル",            deadline: "2026-06-30 22:00" },
-      { id: "R32-08", teamA: "イングランド",          teamB: "DRコンゴ",              deadline: "2026-07-01 22:00" },
-      { id: "R32-09", teamA: "ベルギー",              teamB: "セネガル",              deadline: "2026-07-01 22:00" },
-      { id: "R32-10", teamA: "アメリカ",              teamB: "ボスニア・ヘルツェゴビナ", deadline: "2026-07-01 22:00" },
-      { id: "R32-11", teamA: "スペイン",              teamB: "オーストリア",          deadline: "2026-07-02 22:00" },
-      { id: "R32-12", teamA: "ポルトガル",            teamB: "クロアチア",            deadline: "2026-07-02 22:00" },
-      { id: "R32-13", teamA: "スイス",                teamB: "アルジェリア",          deadline: "2026-07-02 22:00" },
-      { id: "R32-14", teamA: "オーストラリア",        teamB: "エジプト",              deadline: "2026-07-03 22:00" },
-      { id: "R32-15", teamA: "アルゼンチン",          teamB: "カーボベルデ",          deadline: "2026-07-03 22:00" },
-      { id: "R32-16", teamA: "コロンビア",            teamB: "ガーナ",                deadline: "2026-07-03 22:00" },
+      { id: "R32-01", teamA: "ブラジル",    teamB: "セネガル",        deadline: "2026-06-28 22:00" },
+      { id: "R32-02", teamA: "フランス",    teamB: "モロッコ",        deadline: "2026-06-28 22:00" },
+      { id: "R32-03", teamA: "スペイン",    teamB: "メキシコ",        deadline: "2026-06-29 22:00" },
+      { id: "R32-04", teamA: "アルゼンチン",teamB: "オーストラリア",  deadline: "2026-06-29 22:00" },
+      { id: "R32-05", teamA: "イングランド",teamB: "スイス",          deadline: "2026-06-29 22:00" },
+      { id: "R32-06", teamA: "ドイツ",      teamB: "デンマーク",      deadline: "2026-06-30 22:00" },
+      { id: "R32-07", teamA: "ポルトガル",  teamB: "チュニジア",      deadline: "2026-06-30 22:00" },
+      { id: "R32-08", teamA: "オランダ",    teamB: "韓国",            deadline: "2026-06-30 22:00" },
+      { id: "R32-09", teamA: "ベルギー",    teamB: "カナダ",          deadline: "2026-07-01 22:00" },
+      { id: "R32-10", teamA: "クロアチア",  teamB: "チリ",            deadline: "2026-07-01 22:00" },
+      { id: "R32-11", teamA: "ウルグアイ",  teamB: "ガーナ",          deadline: "2026-07-01 22:00" },
+      { id: "R32-12", teamA: "アメリカ",    teamB: "ナイジェリア",    deadline: "2026-07-02 22:00" },
+      { id: "R32-13", teamA: "日本",        teamB: "ポーランド",      deadline: "2026-07-02 22:00" },
+      { id: "R32-14", teamA: "コロンビア",  teamB: "コートジボワール",deadline: "2026-07-02 22:00" },
+      { id: "R32-15", teamA: "エクアドル",  teamB: "セルビア",        deadline: "2026-07-03 22:00" },
+      { id: "R32-16", teamA: "スウェーデン",teamB: "カメルーン",      deadline: "2026-07-03 22:00" },
     ]
   },
   {
@@ -738,28 +738,28 @@ function columnToLetter(col) {
 // ============================
 function saveMatchResults(results) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const adminSheet = ss.getSheetByName("⚙️管理");
-  if (!adminSheet) return { ok: false, error: "⚙️管理シートが見つかりません" };
+  // 「結果入力」または「⚙️管理」シートを探す
+  const resultSheet = ss.getSheetByName("結果入力") || ss.getSheetByName("⚙️管理");
+  if (!resultSheet) return { ok: false, error: "結果入力シートが見つかりません" };
 
-  const data = adminSheet.getDataRange().getValues();
+  const data = resultSheet.getDataRange().getValues();
   let updatedCount = 0;
 
   results.forEach(r => {
-    for (let i = ADMIN_RESULT_ROW - 1; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       const teamA = String(data[i][2] || "").trim();
       const teamB = String(data[i][3] || "").trim();
-      if (!teamA || teamA === "TBD") continue;
+      if (!teamA || teamA === "TBD" || teamA === "チームA") continue;
       if (teamA !== r.teamA || teamB !== r.teamB) continue;
       const row = i + 1;
-      if (r.scoreA !== null) adminSheet.getRange(row, 5).setValue(r.scoreA);
-      if (r.scoreB !== null) adminSheet.getRange(row, 6).setValue(r.scoreB);
-      if (r.winner)          adminSheet.getRange(row, 7).setValue(r.winner);
+      if (r.scoreA !== null) resultSheet.getRange(row, 5).setValue(r.scoreA);
+      if (r.scoreB !== null) resultSheet.getRange(row, 6).setValue(r.scoreB);
       updatedCount++;
       break;
     }
   });
 
-  if (updatedCount > 0) updateAdminView(true);
+  try { updateAdminView(true); } catch(e) {}
   return { ok: true, updated: updatedCount };
 }
 
