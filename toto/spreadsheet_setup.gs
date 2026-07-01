@@ -154,6 +154,7 @@ function setupAll() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   setupAdminSheet(ss);
   setupBetSheet(ss);
+  setupResultSheet(ss);
   ["シート1", "Sheet1"].forEach(name => {
     const s = ss.getSheetByName(name);
     if (s && ss.getSheets().length > 1) ss.deleteSheet(s);
@@ -392,7 +393,69 @@ function rebuildBetSheet() {
 }
 
 // ============================
-// 管理シート（参加者マスタ + 結果入力 を1枚に統合）
+// 結果入力シート（独立シート）
+// ============================
+function setupResultSheet(ss) {
+  let sheet = ss.getSheetByName("📋結果入力");
+  if (!sheet) {
+    sheet = ss.insertSheet("📋結果入力");
+  } else {
+    // ヘッダーだけ残してデータ行はそのまま（スコアが消えないよう）
+    return sheet;
+  }
+  sheet.setTabColor("#1565c0");
+
+  sheet.getRange(1, 1, 1, 8).merge()
+    .setValue("📋 結果入力 — 試合終了後にスコアを入力（H列の勝者は自動計算）")
+    .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
+
+  sheet.getRange(2, 1, 1, 8).setValues([["試合ID","ラウンド","チームA","チームB","スコアA","スコアB","勝者（自動）","手動上書き（PKなど）"]])
+    .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
+
+  let r = 3;
+  ROUNDS.forEach(round => {
+    round.matches.forEach(match => {
+      sheet.getRange(r, 1, 1, 4).setValues([[match.id, round.id, match.teamA, match.teamB]]);
+      sheet.getRange(r, 7)
+        .setFormula(`=IF(AND(E${r}<>"",F${r}<>""),IF(E${r}>F${r},C${r},IF(E${r}<F${r},D${r},"PK")),"")`)
+        .setBackground("#e8f5e9");
+      r++;
+    });
+  });
+
+  sheet.setColumnWidth(1, 80);
+  sheet.setColumnWidth(3, 160);
+  sheet.setColumnWidth(4, 180);
+  sheet.setColumnWidth(7, 160);
+  sheet.setColumnWidth(8, 200);
+  return sheet;
+}
+
+function getResultSheet(ss) {
+  return ss.getSheetByName("📋結果入力")
+      || ss.getSheetByName("結果入力")
+      || ss.getSheetByName("⚙️管理");
+}
+
+function buildResultMap(ss) {
+  const sheet = getResultSheet(ss);
+  if (!sheet) return {};
+  const data = sheet.getDataRange().getValues();
+  const map = {};
+  for (let i = 0; i < data.length; i++) {
+    const id = String(data[i][0] || "").trim();
+    if (!id.match(/^(R32|R16|QF|SF|Final)-\d{2}$/)) continue;
+    // col G (index 6) = 勝者（自動）, col H (index 7) = 手動上書き
+    const autoWinner   = String(data[i][6] || "").trim();
+    const manualWinner = String(data[i][7] || "").trim();
+    const winner = manualWinner || (autoWinner !== "PK" ? autoWinner : "");
+    if (winner) map[id] = { scoreA: data[i][4], scoreB: data[i][5], winner };
+  }
+  return map;
+}
+
+// ============================
+// 管理シート（参加者マスタ）
 // ============================
 function setupAdminSheet(ss) {
   let sheet = ss.getSheetByName("⚙️管理");
@@ -535,20 +598,16 @@ function updateAdminView(silent) {
   TEAMS.forEach(t => { oddsMap[t.name] = t.odds; });
 
   // 結果入力シートから勝者を取得
-  const resultSheet2 = ss.getSheetByName("結果入力") || adminSheet;
-  const resultData2  = resultSheet2.getDataRange().getValues();
+  const resultMapFull = buildResultMap(ss);
   const winnerMap = {};
+  Object.entries(resultMapFull).forEach(([id, v]) => { winnerMap[id] = v.winner; });
+
   const matchTeamsMap = {};
   ROUNDS.forEach(round => {
     round.matches.forEach(match => {
       matchTeamsMap[match.id] = { teamA: match.teamA, teamB: match.teamB };
     });
   });
-  for (let i = 0; i < resultData2.length; i++) {
-    const id     = String(resultData2[i][0] || "").trim();
-    const winner = String(resultData2[i][6] || "").trim();
-    if (id && winner) winnerMap[id] = winner;
-  }
 
   function getFavorite(matchId) {
     const t = matchTeamsMap[matchId];
@@ -750,25 +809,38 @@ function columnToLetter(col) {
 // ============================
 function saveMatchResults(results) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // 「結果入力」または「⚙️管理」シートを探す
-  const resultSheet = ss.getSheetByName("結果入力") || ss.getSheetByName("⚙️管理");
-  if (!resultSheet) return { ok: false, error: "結果入力シートが見つかりません" };
+  // 📋結果入力シートを取得（なければ作成）
+  let resultSheet = ss.getSheetByName("📋結果入力");
+  if (!resultSheet) resultSheet = setupResultSheet(ss);
 
   const data = resultSheet.getDataRange().getValues();
-  let updatedCount = 0;
 
-  results.forEach(r => {
-    for (let i = 0; i < data.length; i++) {
-      const teamA = String(data[i][2] || "").trim();
-      const teamB = String(data[i][3] || "").trim();
-      if (!teamA || teamA === "TBD" || teamA === "チームA") continue;
-      if (teamA !== r.teamA || teamB !== r.teamB) continue;
-      const row = i + 1;
-      if (r.scoreA !== null) resultSheet.getRange(row, 5).setValue(r.scoreA);
-      if (r.scoreB !== null) resultSheet.getRange(row, 6).setValue(r.scoreB);
-      updatedCount++;
-      break;
+  // matchIdとチーム名の両方でインデックスを作成
+  const rowByMatchId = {};  // matchId -> sheet row (1-indexed)
+  const rowByTeams = {};    // "teamA|teamB" -> sheet row
+  for (let i = 0; i < data.length; i++) {
+    const id = String(data[i][0] || "").trim();
+    const teamA = String(data[i][2] || "").trim();
+    const teamB = String(data[i][3] || "").trim();
+    if (id.includes("-")) rowByMatchId[id] = i + 1;
+    if (teamA && teamB && teamA !== "TBD" && teamA !== "チームA") {
+      rowByTeams[`${teamA}|${teamB}`] = i + 1;
     }
+  }
+
+  let updatedCount = 0;
+  results.forEach(r => {
+    // まずteam名でマッチする行を探す（ESPNのデータはmatchIdを持たない）
+    const key = `${r.teamA}|${r.teamB}`;
+    const row = rowByTeams[key];
+    if (!row) return;
+    if (r.scoreA !== null) resultSheet.getRange(row, 5).setValue(r.scoreA);
+    if (r.scoreB !== null) resultSheet.getRange(row, 6).setValue(r.scoreB);
+    // PK判定の場合は手動上書き列(H=8)に勝者を記録
+    if (r.winner && r.scoreA === r.scoreB) {
+      resultSheet.getRange(row, 8).setValue(r.winner);
+    }
+    updatedCount++;
   });
 
   try { updateAdminView(true); } catch(e) {}
