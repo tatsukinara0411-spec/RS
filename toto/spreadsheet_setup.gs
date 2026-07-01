@@ -585,20 +585,24 @@ function updateAdminView(silent) {
     .setValue("▶ 参加者別 賭け状況")
     .setBackground("#0d2137").setFontColor("#8ab4d8").setFontWeight("bold");
   row++;
-  adminSheet.getRange(row, 1, 1, 10)
-    .setValues([["名前","合計使用額","残り予算","上限超過？","獲得金額","的中数","R32","R16","QF","SF/決勝"]])
+  adminSheet.getRange(row, 1, 1, 11)
+    .setValues([["名前","合計使用額","獲得金額","損益","上限超過？","的中数","R32","R16","QF","SF/決勝","状況"]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
   row++;
   stats.forEach(s => {
     const sfFinal = (s.betsByRound["SF"] || 0) + (s.betsByRound["Final"] || 0);
-    adminSheet.getRange(row, 1, 1, 10).setValues([[
-      s.name, `${s.totalBet}円`, `${CFG.maxBudget - s.totalBet}円`,
-      s.over ? "⚠️ 超過！" : "OK",
-      `${s.totalPayout}円`, s.hitCount,
+    const net = s.totalPayout - s.totalBet;
+    const netStr = net > 0 ? `+${net}円` : `${net}円`;
+    const status = s.hitCount === 0 ? "未的中" : net > 0 ? "✅ 黒字" : "🔴 赤字";
+    adminSheet.getRange(row, 1, 1, 11).setValues([[
+      s.name, `${s.totalBet}円`, `${s.totalPayout}円`, netStr,
+      s.over ? "⚠️ 超過！" : "OK", s.hitCount,
       s.betsByRound["R32"] || 0, s.betsByRound["R16"] || 0,
-      s.betsByRound["QF"]  || 0, sfFinal
+      s.betsByRound["QF"]  || 0, sfFinal, status
     ]]);
-    adminSheet.getRange(row, 4).setFontColor(s.over ? "#ef5350" : "#00e676").setFontWeight("bold");
+    adminSheet.getRange(row, 4).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
+    adminSheet.getRange(row, 5).setFontColor(s.over ? "#ef5350" : "#00e676").setFontWeight("bold");
+    adminSheet.getRange(row, 11).setFontColor(net > 0 ? "#00e676" : net < 0 ? "#ef5350" : "#888888").setFontWeight("bold");
     row++;
   });
 

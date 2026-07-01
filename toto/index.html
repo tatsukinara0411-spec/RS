@@ -709,12 +709,16 @@ function renderRanking(data) {
       return `<span class="bet-chip ${cls}">${flag(team)}${team}</span>`;
     }).join("");
 
+    const net = p.totalPayout - p.totalBet;
+    const netColor = net > 0 ? "var(--green)" : net < 0 ? "var(--red)" : "var(--muted)";
+    const netLabel = net > 0 ? `+${net.toLocaleString()}円` : `${net.toLocaleString()}円`;
+
     return `
       <div class="rank-card ${rankClass}">
         <div class="rank-number">${medal}</div>
         <div class="rank-info">
           <div class="rank-name">${p.name}</div>
-          <div class="rank-detail">的中 ${p.hitCount}件 / 賭け ${p.totalBet.toLocaleString()}円</div>
+          <div class="rank-detail">的中 ${p.hitCount}件 / 賭け ${p.totalBet.toLocaleString()}円 / <span style="color:${netColor};font-weight:bold">${netLabel}</span></div>
           <div class="rank-bets">${betChips}</div>
         </div>
         <div class="rank-payout">
