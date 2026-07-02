@@ -589,38 +589,65 @@ const TEAM_NAME_MAP_EN = {
   "Senegal":"セネガル",
 };
 
+// ESPNスコアボードは1回で「その日の試合」しか返さないため、
+// 大会期間の全日程（6/20〜7/19）をループで取得する
+function tournamentDates() {
+  const dates = [];
+  const start = new Date(2026, 5, 20); // 6/20
+  const end   = new Date(2026, 6, 20); // 7/20
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    dates.push(`${y}${m}${day}`);
+  }
+  return dates;
+}
+
 async function fetchAndSaveResults() {
   const btn = document.getElementById("btn-fetch-results");
   if (btn) { btn.textContent = "取得中..."; btn.disabled = true; }
   try {
-    const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard");
-    const espn = await res.json();
-    const events = espn.events || [];
-    const results = [];
-    events.forEach(ev => {
-      const comp = ev.competitions && ev.competitions[0];
-      if (!comp || !comp.status?.type?.completed) return;
-      const comps = comp.competitors || [];
-      if (comps.length < 2) return;
-      const home = comps.find(c => c.homeAway === "home") || comps[0];
-      const away = comps.find(c => c.homeAway === "away") || comps[1];
-      const nameA = TEAM_NAME_MAP_EN[home.team.displayName] || home.team.displayName;
-      const nameB = TEAM_NAME_MAP_EN[away.team.displayName] || away.team.displayName;
-      const scoreA = parseInt(home.score || 0);
-      const scoreB = parseInt(away.score || 0);
-      const winnerComp = comps.find(c => c.winner);
-      const winner = winnerComp
-        ? (TEAM_NAME_MAP_EN[winnerComp.team.displayName] || winnerComp.team.displayName)
-        : (scoreA > scoreB ? nameA : scoreB > scoreA ? nameB : null);
-      if (winner) results.push({ teamA: nameA, teamB: nameB, scoreA, scoreB, winner });
+    const dates = tournamentDates();
+    const resultsMap = {}; // "teamA|teamB" で重複排除
+
+    // 全日程を並列取得
+    const responses = await Promise.all(
+      dates.map(dt =>
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=${dt}`)
+          .then(r => r.ok ? r.json() : { events: [] })
+          .catch(() => ({ events: [] }))
+      )
+    );
+
+    responses.forEach(espn => {
+      (espn.events || []).forEach(ev => {
+        const comp = ev.competitions && ev.competitions[0];
+        if (!comp || !comp.status?.type?.completed) return;
+        const comps = comp.competitors || [];
+        if (comps.length < 2) return;
+        const home = comps.find(c => c.homeAway === "home") || comps[0];
+        const away = comps.find(c => c.homeAway === "away") || comps[1];
+        const nameA = TEAM_NAME_MAP_EN[home.team.displayName] || home.team.displayName;
+        const nameB = TEAM_NAME_MAP_EN[away.team.displayName] || away.team.displayName;
+        const scoreA = parseInt(home.score || 0);
+        const scoreB = parseInt(away.score || 0);
+        const winnerComp = comps.find(c => c.winner);
+        const winner = winnerComp
+          ? (TEAM_NAME_MAP_EN[winnerComp.team.displayName] || winnerComp.team.displayName)
+          : (scoreA > scoreB ? nameA : scoreB > scoreA ? nameB : null);
+        if (winner) resultsMap[`${nameA}|${nameB}`] = { teamA: nameA, teamB: nameB, scoreA, scoreB, winner };
+      });
     });
+
+    const results = Object.values(resultsMap);
     if (results.length === 0) {
-      alert("終了した試合がまだありません。");
+      alert("終了した試合がまだ見つかりませんでした。\n（ESPNにデータが反映されるまで時間がかかる場合があります）");
       return;
     }
     google.script.run
       .withSuccessHandler(r => {
-        alert(`✅ ${r.updated}試合の結果を更新しました！`);
+        alert(`✅ ${r.updated}試合の勝者を自動反映しました！\n（該当カード ${results.length}件を取得）`);
         loadData();
       })
       .withFailureHandler(e => alert("保存エラー: " + e.message))
