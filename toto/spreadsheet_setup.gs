@@ -399,23 +399,30 @@ function addResultSheetOnly() {
   SpreadsheetApp.getUi().alert("✅ 📋結果入力シートを更新しました！\n入力済みスコアは引き継がれています。\n賭けデータは一切変更されていません。");
 }
 
-// 既存のスコアを保持しつつ結果入力シートを正しいROUNDSデータで再構築
+// 既存の勝者を保持しつつ結果入力シートを正しいROUNDSデータで再構築
+// 【新方式】勝者をプルダウンで選ぶだけ（スコア入力不要）
 function rebuildResultSheet(ss) {
   const existing = ss.getSheetByName("📋結果入力") || ss.getSheetByName("結果入力");
 
-  // 既存スコアをmatchId単位で退避
-  const savedScores = {};
+  // 既存の勝者選択をmatchId単位で退避
+  const savedWinners = {};
   if (existing) {
     const data = existing.getDataRange().getValues();
     for (let i = 0; i < data.length; i++) {
       const id = String(data[i][0] || "").trim();
       if (!id.match(/^(R32|R16|QF|SF|Final)-\d{2}$/)) continue;
-      const scoreA = data[i][4];
-      const scoreB = data[i][5];
-      const manual = String(data[i][7] || "").trim();
-      if (scoreA !== "" || scoreB !== "" || manual) {
-        savedScores[id] = { scoreA, scoreB, manual };
-      }
+      // 旧レイアウト(E列スコア)・新レイアウト(E列勝者)の両対応で勝者を拾う
+      const eVal = String(data[i][4] || "").trim();   // 新: 勝者
+      const gVal = String(data[i][6] || "").trim();   // 旧: 勝者（自動）
+      const hVal = String(data[i][7] || "").trim();   // 旧: 手動上書き
+      const teamA = String(data[i][2] || "").trim();
+      const teamB = String(data[i][3] || "").trim();
+      let w = "";
+      // eValがチーム名ならそれを採用（スコア数値は無視）
+      if (eVal === teamA || eVal === teamB) w = eVal;
+      else if (hVal) w = hVal;
+      else if (gVal && gVal !== "PK") w = gVal;
+      if (w) savedWinners[id] = w;
     }
     ss.deleteSheet(existing);
   }
@@ -424,30 +431,35 @@ function rebuildResultSheet(ss) {
   const sheet = ss.insertSheet("📋結果入力");
   sheet.setTabColor("#1565c0");
 
-  sheet.getRange(1, 1, 1, 8).merge()
-    .setValue("📋 結果入力 — スコアを入力するとG列の勝者が自動計算されます")
+  sheet.getRange(1, 1, 1, 5).merge()
+    .setValue("📋 結果入力 — 「勝ったチーム」をプルダウンで選ぶだけ！（引き分けPKは勝ち上がった方を選択）")
     .setBackground("#1a3a5c").setFontColor("#f0c040").setFontSize(13).setFontWeight("bold");
-  sheet.getRange(2, 1, 1, 8)
-    .setValues([["試合ID","ラウンド","チームA","チームB","スコアA","スコアB","勝者（自動）","手動上書き（PKなど）"]])
+  sheet.getRange(2, 1, 1, 5)
+    .setValues([["試合ID","ラウンド","チームA","チームB","🏆 勝者（ここを選択）"]])
     .setBackground("#0a1628").setFontColor("#6a9bc0").setFontWeight("bold");
 
   let r = 3;
   ROUNDS.forEach(round => {
     round.matches.forEach(match => {
-      const saved = savedScores[match.id] || {};
       sheet.getRange(r, 1, 1, 4).setValues([[match.id, round.id, match.teamA, match.teamB]]);
-      if (saved.scoreA !== undefined && saved.scoreA !== "") sheet.getRange(r, 5).setValue(saved.scoreA);
-      if (saved.scoreB !== undefined && saved.scoreB !== "") sheet.getRange(r, 6).setValue(saved.scoreB);
-      if (saved.manual) sheet.getRange(r, 8).setValue(saved.manual);
-      sheet.getRange(r, 7)
-        .setFormula(`=IF(AND(E${r}<>"",F${r}<>""),IF(E${r}>F${r},C${r},IF(E${r}<F${r},D${r},"PK")),"")`)
-        .setBackground("#e8f5e9");
+      const winnerCell = sheet.getRange(r, 5);
+      // TBD以外の試合には勝者プルダウンを設定
+      if (match.teamA !== "TBD") {
+        const rule = SpreadsheetApp.newDataValidation()
+          .requireValueInList([match.teamA, match.teamB], true)
+          .setAllowInvalid(false)
+          .build();
+        winnerCell.setDataValidation(rule);
+        winnerCell.setBackground("#fff8e1");
+        if (savedWinners[match.id]) winnerCell.setValue(savedWinners[match.id]);
+      }
       r++;
     });
   });
 
-  sheet.setColumnWidth(1, 90); sheet.setColumnWidth(3, 160);
-  sheet.setColumnWidth(4, 200); sheet.setColumnWidth(7, 160); sheet.setColumnWidth(8, 200);
+  sheet.setColumnWidth(1, 90); sheet.setColumnWidth(3, 170);
+  sheet.setColumnWidth(4, 200); sheet.setColumnWidth(5, 200);
+  sheet.setFrozenRows(2);
   return sheet;
 }
 
@@ -472,11 +484,18 @@ function buildResultMap(ss) {
   for (let i = 0; i < data.length; i++) {
     const id = String(data[i][0] || "").trim();
     if (!id.match(/^(R32|R16|QF|SF|Final)-\d{2}$/)) continue;
-    // col G (index 6) = 勝者（自動）, col H (index 7) = 手動上書き
-    const autoWinner   = String(data[i][6] || "").trim();
-    const manualWinner = String(data[i][7] || "").trim();
-    const winner = manualWinner || (autoWinner !== "PK" ? autoWinner : "");
-    if (winner) map[id] = { scoreA: data[i][4], scoreB: data[i][5], winner };
+    const teamA = String(data[i][2] || "").trim();
+    const teamB = String(data[i][3] || "").trim();
+    // 新方式: E列(index 4)に勝者チーム名を直接選択
+    const eVal = String(data[i][4] || "").trim();
+    // 旧方式フォールバック: G列(index 6)自動 / H列(index 7)手動
+    const gVal = String(data[i][6] || "").trim();
+    const hVal = String(data[i][7] || "").trim();
+    let winner = "";
+    if (eVal === teamA || eVal === teamB) winner = eVal;
+    else if (hVal === teamA || hVal === teamB) winner = hVal;
+    else if (gVal === teamA || gVal === teamB) winner = gVal;
+    if (winner) map[id] = { winner };
   }
   return map;
 }
@@ -861,13 +880,9 @@ function saveMatchResults(results) {
     const key  = `${r.teamA}|${r.teamB}`;
     const keyR = `${r.teamB}|${r.teamA}`;
     const row = rowByTeams[key] || rowByTeams[keyR];
-    if (!row) return;
-    if (r.scoreA !== null) resultSheet.getRange(row, 5).setValue(r.scoreA);
-    if (r.scoreB !== null) resultSheet.getRange(row, 6).setValue(r.scoreB);
-    // PK判定の場合は手動上書き列(H=8)に勝者を記録
-    if (r.winner && r.scoreA === r.scoreB) {
-      resultSheet.getRange(row, 8).setValue(r.winner);
-    }
+    if (!row || !r.winner) return;
+    // 新方式: E列(5)に勝者チーム名を直接書き込む
+    resultSheet.getRange(row, 5).setValue(r.winner);
     updatedCount++;
   });
 
@@ -920,27 +935,12 @@ function doGet(e) {
 }
 
 function getPublicData(ss) {
-  const adminSheet  = ss.getSheetByName("⚙️管理");
-  const betSheet    = ss.getSheetByName("🎯賭け入力");
-  // 結果入力シートが別にある場合はそちらを優先
-  const resultSheet = ss.getSheetByName("結果入力") || adminSheet;
+  const betSheet = ss.getSheetByName("🎯賭け入力");
 
   const participants = getParticipantList(ss);
-  const resultData   = resultSheet.getDataRange().getValues();
 
-  // 結果入力シートからmatchId→{scoreA,scoreB,winner}マップを作成
-  const resultMap = {};
-  for (let i = 0; i < resultData.length; i++) {
-    const id     = String(resultData[i][0] || "").trim();
-    const teamA  = String(resultData[i][2] || "").trim();
-    const winner = String(resultData[i][6] || "").trim();
-    if (!id || !teamA || teamA === "チームA" || teamA === "TBD") continue;
-    resultMap[id] = {
-      scoreA: resultData[i][4] || null,
-      scoreB: resultData[i][5] || null,
-      winner: winner || null,
-    };
-  }
+  // 結果入力シートから勝者マップを取得（新方式: E列プルダウン）
+  const resultMap = buildResultMap(ss);
 
   // ROUNDSを正とした試合リストを生成
   const matches   = [];
@@ -952,7 +952,7 @@ function getPublicData(ss) {
       matches.push({
         id: match.id, round: round.id,
         teamA: match.teamA, teamB: match.teamB,
-        scoreA: res.scoreA || null, scoreB: res.scoreB || null, winner,
+        scoreA: null, scoreB: null, winner,
       });
       if (winner) winnerMap[match.id] = winner;
     });
