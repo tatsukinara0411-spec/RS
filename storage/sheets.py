@@ -94,7 +94,7 @@ def _get_or_create_sheet(ss: gspread.Spreadsheet, tab_name: str) -> gspread.Work
     try:
         ws = ss.worksheet(tab_name)
     except gspread.WorksheetNotFound:
-        ws = ss.add_worksheet(title=tab_name, rows=500, cols=10)
+        ws = ss.add_worksheet(title=tab_name, rows=5000, cols=10)
         ws.append_row(HEADER)
         logger.info(f"新しいシートタブを作成: {tab_name}")
     return ws
