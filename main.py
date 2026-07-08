@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 テレアポリード自動収集システム
-毎週月曜日のGitHub Actionsで実行される。
+毎週月曜日にGitHub Actionsで実行される。
 """
 import asyncio
 import argparse
@@ -15,6 +15,9 @@ from scrapers.mynavi_baito import MynaviBaitoScraper
 from scrapers.en_engage import EnEngageScraper
 from scrapers.kyujinbox import KyujinboxScraper
 from scrapers.baitoru import BaitoruScraper
+from scrapers.workin import WorkinScraper
+from scrapers.jmedley import JmedleyScraper
+from scrapers.stanby import StanbyScraper
 from storage.database import init_db, deduplicate, mark_seen_pair
 from storage.sheets import write_leads
 from models.lead import Lead
@@ -32,6 +35,7 @@ logger = logging.getLogger(__name__)
 async def run_scrape(dry_run: bool = False):
     logger.info("=== テレアポリード収集 開始 ===")
 
+    # 認証情報の不備はスクレイピング(約10分)の前に検知して即終了する
     if not dry_run and os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") is not None:
         load_service_account_info(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
 
@@ -44,12 +48,16 @@ async def run_scrape(dry_run: bool = False):
         EnEngageScraper(semaphore),
         KyujinboxScraper(semaphore),
         BaitoruScraper(semaphore),
+        WorkinScraper(semaphore),
+        JmedleyScraper(semaphore),
+        StanbyScraper(semaphore),
     ]
 
     headless = os.environ.get("PLAYWRIGHT_HEADLESS", "true").lower() != "false"
 
     async with async_playwright() as p:
         import glob as _glob
+        # 環境内に存在するChromiumを自動検索
         candidates = _glob.glob("/opt/pw-browsers/chromium-*/chrome-linux/chrome")
         executable = candidates[0] if candidates else None
 
@@ -63,6 +71,7 @@ async def run_scrape(dry_run: bool = False):
             ],
         )
 
+        # コンテキストに日本語設定
         context = await browser.new_context(
             locale="ja-JP",
             timezone_id="Asia/Tokyo",
@@ -74,11 +83,13 @@ async def run_scrape(dry_run: bool = False):
             ),
         )
 
+        # 全スクレイパーを並列実行
         tasks = [scraper.scrape(context) for scraper in scrapers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        # 結果集約
         all_leads: list[Lead] = []
-        site_names = ["マイナビバイト", "enゲージ", "求人BOX", "バイトル"]
+        site_names = ["マイナビバイト", "enゲージ", "求人BOX", "バイトル", "Workin", "ジョブメドレー", "スタンバイ"]
         for site, result in zip(site_names, results):
             if isinstance(result, Exception):
                 logger.error(f"[{site}] スクレイピング失敗: {result}")
@@ -86,11 +97,14 @@ async def run_scrape(dry_run: bool = False):
                 logger.info(f"[{site}] 取得: {len(result)}件")
                 all_leads.extend(result)
 
+        # 重複除外(詳細補完の無駄打ちを防ぐため先に実施)
         unique_leads = deduplicate(all_leads)
         logger.info(f"重複除外後: {len(unique_leads)}件 (元: {len(all_leads)}件)")
 
+        # 重複除外キーを補完前の住所で控えておく
         dedup_keys = [(l.company_name, l.address, l.collected_at, l.source_site) for l in unique_leads]
 
+        # 詳細ページから電話番号・住所を補完(対応サイトのみ)
         for scraper in scrapers:
             site_leads = [l for l in unique_leads if l.source_site == scraper.site_name]
             if site_leads:
@@ -102,11 +116,16 @@ async def run_scrape(dry_run: bool = False):
         await context.close()
         await browser.close()
 
+    # Googleマップから電話番号・住所を補完(電話番号が未取得のリードのみ)
     await enrich_with_places(unique_leads)
+
+    # 国税庁APIから法人番号を補完
     await enrich_with_corporate_numbers(unique_leads)
 
+    # スプレッドシートへ書き込み
     url = write_leads(unique_leads, dry_run=dry_run)
 
+    # DBに記録(補完前の住所をキーにする)
     if not dry_run:
         for name, addr, collected_at, source_site in dedup_keys:
             mark_seen_pair(name, addr, collected_at, source_site)
