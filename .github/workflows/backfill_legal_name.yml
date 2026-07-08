@@ -1,0 +1,27 @@
+name: 法人名補填（屋号→法人名・法人番号）
+
+on:
+  workflow_dispatch:
+    inputs:
+      tab_name:
+        description: '補填対象のタブ名（例: 2026-W27）。全タブは "all"'
+        required: false
+        default: 'all'
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install gspread google-auth aiohttp
+      - name: 法人名補填実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          NTA_API_KEY: ${{ secrets.NTA_API_KEY }}
+          TAB_NAME: ${{ github.event.inputs.tab_name }}
+        run: python tools/backfill_legal_name.py
