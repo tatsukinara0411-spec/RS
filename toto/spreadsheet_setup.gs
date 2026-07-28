@@ -934,6 +934,11 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// HTMLから google.script.run で直接呼び出すためのラッパー（引数なし）
+function getPublicDataForClient() {
+  return getPublicData(SpreadsheetApp.getActiveSpreadsheet());
+}
+
 function getPublicData(ss) {
   const betSheet = ss.getSheetByName("🎯賭け入力");
 

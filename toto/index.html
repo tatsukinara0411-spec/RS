@@ -675,12 +675,19 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // データ取得 & 描画
 // ============================
 async function loadData() {
-  // GAS URLが未設定の場合はデモデータを使用
-  if (GAS_URL === "YOUR_GAS_WEB_APP_URL_HERE") {
-    renderAll(DEMO_DATA);
+  // GASから配信されている場合は google.script.run で直接取得（CORS問題なし・最も確実）
+  if (typeof google !== "undefined" && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(data => renderAll(data))
+      .withFailureHandler(e => {
+        document.getElementById("ranking-list").innerHTML =
+          `<div class="loading"><p>⚠️ データの取得に失敗しました。<br>${e.message}</p></div>`;
+      })
+      .getPublicDataForClient();
     return;
   }
 
+  // スタンドアロンHTML（GAS外）の場合は fetch でJSON取得
   try {
     const res = await fetch(GAS_URL);
     const data = await res.json();
