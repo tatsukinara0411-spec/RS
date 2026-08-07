@@ -46,20 +46,63 @@ class _Row:
         self.legal_name = ""
 
 
+def _ensure_columns(ws: gspread.Worksheet, header: list) -> bool:
+    """
+    法人名・法人番号列が無いタブ（例: 会社名|住所|... のW26形式）に
+    A列の後ろへ「法人名」「法人番号」の2列を挿入する。挿入したらTrue。
+    """
+    if len(header) >= 3 and header[2] == "法人番号":
+        return False  # 既に新フォーマット
+    # 会社名/屋号の直後に2列挿入
+    ws.spreadsheet.batch_update({
+        "requests": [{
+            "insertDimension": {
+                "range": {
+                    "sheetId": ws.id,
+                    "dimension": "COLUMNS",
+                    "startIndex": 1,   # B列の位置に
+                    "endIndex": 3,     # 2列分
+                },
+                "inheritFromBefore": False,
+            }
+        }]
+    })
+    ws.update_cell(1, 2, "法人名")
+    ws.update_cell(1, 3, "法人番号")
+    logger.info(f"タブ '{ws.title}': 法人名・法人番号列を挿入しました")
+    return True
+
+
 async def fill_tab(ws: gspread.Worksheet) -> tuple:
     """タブの法人名・法人番号を補填。(found, missing) を返す。"""
     header = ws.row_values(1)
     if not header:
         return 0, 0
 
-    if len(header) >= 3 and header[2] == "法人番号":
-        col_company = 0   # A: 屋号
-        col_legal = 1     # B: 法人名
-        col_corp_num = 2  # C: 法人番号
-        col_address = 3   # D: 住所
-    else:
-        logger.info(f"タブ '{ws.title}': 新フォーマットではないためスキップ")
-        return 0, 0
+    # 新フォーマット（屋号|法人名|法人番号）か判定。違えば列挿入を試みる。
+    if not (len(header) >= 3 and header[2] == "法人番号"):
+        # 旧フォーマット（会社名|法人番号|住所）はそのまま補填対象にする
+        if len(header) >= 2 and header[1] == "法人番号":
+            col_company = 0
+            col_legal = None
+            col_corp_num = 1
+            col_address = 2
+            return await _fill_rows(ws, col_company, col_legal, col_corp_num, col_address)
+        # 会社名はあるが法人番号列が無い（W26形式）→ 列を挿入して新フォーマット化
+        if len(header) >= 1 and header[0] in ("会社名", "屋号"):
+            _ensure_columns(ws, header)
+        else:
+            logger.info(f"タブ '{ws.title}': 対象外フォーマットのためスキップ")
+            return 0, 0
+
+    col_company = 0   # A: 屋号/会社名
+    col_legal = 1     # B: 法人名
+    col_corp_num = 2  # C: 法人番号
+    col_address = 3   # D: 住所
+    return await _fill_rows(ws, col_company, col_legal, col_corp_num, col_address)
+
+
+async def _fill_rows(ws, col_company, col_legal, col_corp_num, col_address) -> tuple:
 
     all_values = ws.get_all_values()
     if len(all_values) <= 1:
@@ -68,7 +111,9 @@ async def fill_tab(ws: gspread.Worksheet) -> tuple:
     targets = []
     for i, row in enumerate(all_values[1:], start=2):
         corp_num = row[col_corp_num] if len(row) > col_corp_num else ""
-        legal = row[col_legal] if len(row) > col_legal else ""
+        legal = ""
+        if col_legal is not None and len(row) > col_legal:
+            legal = row[col_legal]
         if corp_num.strip() or legal.strip():
             continue  # どちらかが入力済みならスキップ
         company = row[col_company] if len(row) > col_company else ""
@@ -91,7 +136,7 @@ async def fill_tab(ws: gspread.Worksheet) -> tuple:
     for (sheet_row, company, _), row in zip(targets, rows):
         if row.corporate_number:
             cell_updates.append(gspread.Cell(sheet_row, col_corp_num + 1, row.corporate_number))
-            if row.legal_name:
+            if row.legal_name and col_legal is not None:
                 cell_updates.append(gspread.Cell(sheet_row, col_legal + 1, row.legal_name))
             found += 1
         else:
