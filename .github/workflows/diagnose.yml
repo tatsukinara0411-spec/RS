@@ -1,0 +1,18 @@
+name: スクレイパー診断（HTML構造調査）
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install playwright
+      - run: playwright install chromium --with-deps
+      - name: 診断実行
+        run: python tools/diagnose_scrapers.py
