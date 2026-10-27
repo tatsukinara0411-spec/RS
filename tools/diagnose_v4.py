@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""診断v5: マイナビバイトの職種カテゴリ番号（/tokyo/ss-N/）の中身を調べる。結果は注記に出す。"""
-import asyncio, glob, re
+"""診断v6: マイナビバイト ss-17/ss-18 の中身、ページ送りの形式、「他の店舗」カードの社名欄を確認する。"""
+import asyncio, glob
 from playwright.async_api import async_playwright
 
 
@@ -18,28 +18,20 @@ async def main():
                                   user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
         pg = await ctx.new_page()
         out = []
-        for n in range(1, 21):
-            u = f"https://baito.mynavi.jp/tokyo/ss-{n}/"
-            try:
-                await pg.goto(u, wait_until="load", timeout=40000); await asyncio.sleep(2)
-                cs = await pg.query_selector_all(".tabJobOfferCard")
-                first = ""
-                if cs:
-                    first = (await cs[0].inner_text()).strip().replace("\n", " ")[:50]
-                out.append(f"ss-{n} -> {pg.url.replace('https://baito.mynavi.jp','')} | {(await pg.title())[:40]} | cards={len(cs)} | {first}")
-            except Exception as e:
-                out.append(f"ss-{n} ERR {str(e)[:80]}")
-        emit("MYNAVI_SS_LIST", out)
-        out = []
-        for s in ["keibi", "driver", "kaigo", "food", "seizou"]:
-            try:
-                await pg.goto(f"https://baito.mynavi.jp/shokushu/{s}/", wait_until="load", timeout=40000); await asyncio.sleep(2)
-                hs = await pg.eval_on_selector_all("a[href]", "els => els.map(e => [e.getAttribute('href'), (e.innerText||'').trim().replace(/\\s+/g,' ').slice(0,25)])")
-                got = [f"{h} « {t}" for h, t in hs if h and "tokyo" in h and ("ss-" in h)][:8]
-                out.append(f"## {s}: " + " || ".join(got))
-            except Exception as e:
-                out.append(f"## {s} ERR {str(e)[:80]}")
-        emit("MYNAVI_SHOKUSHU", out)
+        for u in ["/tokyo/ss-17/", "/tokyo/ss-18/", "/tokyo/ss-1/"]:
+            await pg.goto("https://baito.mynavi.jp" + u, wait_until="load", timeout=40000); await asyncio.sleep(2)
+            out.append(f"## {u} {pg.url} | {await pg.title()}")
+            hs = await pg.eval_on_selector_all("a[href]", "els => els.map(e => [e.getAttribute('href'), (e.innerText||'').trim().replace(/\\s+/g,' ').slice(0,20)])")
+            ssm = sorted({f"{h} « {t}" for h, t in hs if h and "/ssm-" in h and u.strip('/').split('/')[-1] in h})[:25]
+            pages = sorted({h for h, t in hs if h and ("pageNo" in h or "/pg" in h or "page" in h.lower())})[:6]
+            out.append("  ssm: " + " || ".join(ssm))
+            out.append("  pages: " + " || ".join(pages))
+            for c in (await pg.query_selector_all(".tabJobOfferCard"))[:6]:
+                n = await c.query_selector(".shopName"); w = await c.query_selector(".shopNameWrap")
+                nt = (await n.inner_text()).replace("\n", "⏎") if n else "-"
+                wt = (await w.inner_text()).replace("\n", "⏎") if w else "-"
+                out.append(f"  shopName={nt[:40]} | wrap={wt[:50]}")
+        emit("MYNAVI_V6", out)
         await b.close()
 
 asyncio.run(main())
