@@ -101,6 +101,7 @@ class KyujinboxScraper(BaseScraper):
                 source_site="求人BOX",
                 source_url=source_url,
                 detail_url=detail_url,
+                job_text=" ".join(lines)[:400],
                 collected_at=datetime.now().isoformat(),
             )
         except Exception as e:
@@ -122,7 +123,7 @@ class KyujinboxScraper(BaseScraper):
 
                 m = LABELED_PHONE_RE.search(body)
                 if m:
-                    lead.phone = m.group(1)
+                    lead.listing_phone = m.group(1)
                     found_phone += 1
 
                 full_addr = await self._extract_address(page)

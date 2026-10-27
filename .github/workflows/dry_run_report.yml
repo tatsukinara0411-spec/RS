@@ -1,0 +1,22 @@
+name: 修正確認の試運転（シート書き込みなし）
+
+on:
+  push:
+    branches:
+      - claude/scraper-fixes
+  workflow_dispatch:
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - run: playwright install chromium --with-deps
+      - name: 試運転
+        run: python tools/dry_run_report.py

@@ -119,6 +119,14 @@ async def run_scrape(dry_run: bool = False):
     # Googleマップから電話番号・住所を補完(電話番号が未取得のリードのみ)
     await enrich_with_places(unique_leads)
 
+    # Googleマップで代表番号が取れなかったものは、求人ページの番号で埋める
+    fallback = 0
+    for lead in unique_leads:
+        if not lead.phone and lead.listing_phone:
+            lead.phone = lead.listing_phone
+            fallback += 1
+    logger.info(f"求人ページの番号で補った件数: {fallback}件")
+
     # 国税庁APIから法人番号を補完
     await enrich_with_corporate_numbers(unique_leads)
 

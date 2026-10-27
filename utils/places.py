@@ -163,7 +163,9 @@ async def enrich_with_places(leads: list, concurrency: int = 5) -> int:
         )
         return 0
 
+    # 番号が全く無いものを先に、求人ページの番号しか無いものを後に調べる
     targets = [l for l in leads if not l.phone]
+    targets.sort(key=lambda l: bool(getattr(l, "listing_phone", "")))
     if not targets:
         logger.info("[Places] 電話番号補完対象なし（全件取得済み）")
         return 0

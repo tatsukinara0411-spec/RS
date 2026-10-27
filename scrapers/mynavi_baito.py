@@ -9,13 +9,15 @@ from utils.fingerprint import is_tokyo_23ward
 
 logger = logging.getLogger(__name__)
 
+# 2026年10月時点の職種カテゴリ番号（旧形式の /tokyo/keibi/ などは全件ページ /tokyo/all/ に転送され、
+# 業種で絞り込めていなかった）。調べ方: tools/diagnose_v3.py を参照。
 INDUSTRY_PATHS = {
-    "警備": "keibi",
-    "運輸": "unso",
-    "外食": "gaishoku",
-    "販売": "hanbai",
-    "介護": "kaigo",
-    "建設": "kensetsu",
+    "警備": "ss-18",         # 警備・清掃・ビル管理
+    "運輸": "ss-12",         # 配送・引越・ドライバー
+    "外食": "ss-1",          # 飲食・フード
+    "販売": "ss-3",          # 販売・接客・サービス
+    "介護": "ss-9/ssm-117",  # 医療・介護・保育 のうち介護
+    "建設": "ss-17",         # 工場・倉庫・建築・土木（工場・倉庫は業種判定で振り分け）
 }
 
 BASE_URL = "https://baito.mynavi.jp"
@@ -40,6 +42,9 @@ class MynaviBaitoScraper(BaseScraper):
             page = await context.new_page()
             try:
                 await self.safe_goto(page, url)
+                if "/all/" in page.url:
+                    logger.error(f"[マイナビバイト] 業種ページが全件ページに転送されました（カテゴリ番号の変更）: {url}")
+                    break
 
                 cards = await page.query_selector_all(".tabJobOfferCard")
                 if not cards:
@@ -67,8 +72,11 @@ class MynaviBaitoScraper(BaseScraper):
 
     async def _parse_card(self, card, industry: str, source_url: str) -> Lead | None:
         try:
-            name_el = await card.query_selector(".shopNameWrap")
+            # .shopNameWrap には「他の店舗」ボタンの文字が混ざるため .shopName を使う
+            name_el = await card.query_selector(".shopName") or await card.query_selector(".shopNameWrap")
             company_name = (await name_el.inner_text()).strip() if name_el else ""
+            company_name = company_name.replace("他の店舗", "")
+            company_name = " ".join(company_name.split())
             if not company_name:
                 return None
 
@@ -93,6 +101,7 @@ class MynaviBaitoScraper(BaseScraper):
                 industry=industry,
                 source_site="マイナビバイト",
                 source_url=source_url,
+                job_text=" ".join((await card.inner_text()).split())[:400],
                 collected_at=datetime.now().isoformat(),
             )
         except Exception as e:

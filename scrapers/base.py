@@ -7,6 +7,7 @@ from playwright.async_api import Page, Browser, BrowserContext
 
 from models.lead import Lead
 from utils.rate_limiter import polite_delay
+from utils.industry import classify_industry
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,13 @@ class BaseScraper(ABC):
                 logger.info(f"[{self.site_name}] {industry} スクレイピング開始")
                 leads = await self.scrape_industry(context, industry)
                 leads = leads[:self.per_industry]
+                for lead in leads:
+                    # 求人ページの番号は応募受付用のことが多いので「代表番号」とは分けて持つ
+                    if lead.phone and not lead.listing_phone:
+                        lead.listing_phone = lead.phone
+                        lead.phone = ""
+                    # 検索した業種ではなく、カードの文字から業種を付け直す
+                    lead.industry = classify_industry(lead.job_text, industry)
                 all_leads.extend(leads)
                 logger.info(f"[{self.site_name}] {industry}: {len(leads)}件取得")
             except Exception as e:
