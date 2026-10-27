@@ -6,6 +6,7 @@ on:
       - claude/scraper-fixes
     paths:
       - tools/diagnose_v3.py
+      - tools/diagnose_v4.py
       - .github/workflows/diagnose_v3.yml
   workflow_dispatch:
 
@@ -21,4 +22,5 @@ jobs:
       - run: pip install playwright
       - run: playwright install chromium --with-deps
       - name: 診断v3実行
-        run: python tools/diagnose_v3.py
+        run: python tools/diagnose_v4.py
+      - tools/diagnose_v4.py
