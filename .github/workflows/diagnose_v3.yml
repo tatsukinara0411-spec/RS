@@ -21,6 +21,5 @@ jobs:
           python-version: "3.11"
       - run: pip install playwright
       - run: playwright install chromium --with-deps
-      - name: 診断v3実行
+      - name: 診断v4実行
         run: python tools/diagnose_v4.py
-      - tools/diagnose_v4.py
