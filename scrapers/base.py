@@ -17,6 +17,8 @@ TARGET_COUNT = 700
 
 class BaseScraper(ABC):
     site_name: str = ""
+    # キーワードが無ければ「その他」にする業種（カテゴリに別業種が混ざるサイト向け）
+    strict_industries: set[str] = set()
 
     def __init__(self, semaphore: asyncio.Semaphore):
         self.semaphore = semaphore
@@ -44,7 +46,7 @@ class BaseScraper(ABC):
                         lead.listing_phone = lead.phone
                         lead.phone = ""
                     # 検索した業種ではなく、カードの文字から業種を付け直す
-                    lead.industry = classify_industry(lead.job_text, industry)
+                    lead.industry = classify_industry(lead.job_text, industry, industry in self.strict_industries)
                 all_leads.extend(leads)
                 logger.info(f"[{self.site_name}] {industry}: {len(leads)}件取得")
             except Exception as e:

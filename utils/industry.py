@@ -7,7 +7,9 @@
 判定の順番:
   1. 検索した業種のキーワードが含まれる → その業種
   2. 他の業種のキーワードが含まれる     → その業種（最初に一致したもの）
-  3. どれも含まれない                   → 「その他」
+  3. どれも含まれない                   → 検索した業種のまま
+     （strict=True のときだけ「その他」。マイナビバイトの「工場・倉庫・建築・土木」のように
+       1つのカテゴリに別の業種が混ざっている場合に使う）
   カードの文字が取れていない場合は、検索した業種のままにする。
 """
 import unicodedata
@@ -29,7 +31,7 @@ INDUSTRY_KEYWORDS: dict[str, list[str]] = {
 OTHER = "その他"
 
 
-def classify_industry(text: str, searched: str) -> str:
+def classify_industry(text: str, searched: str, strict: bool = False) -> str:
     if not text or not text.strip():
         return searched
     t = unicodedata.normalize("NFKC", text)
@@ -38,4 +40,4 @@ def classify_industry(text: str, searched: str) -> str:
     for name, kws in INDUSTRY_KEYWORDS.items():
         if name != searched and any(k in t for k in kws):
             return name
-    return OTHER
+    return OTHER if strict else searched

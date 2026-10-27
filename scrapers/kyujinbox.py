@@ -23,6 +23,8 @@ INDUSTRY_KEYWORDS = {
 
 LABELED_PHONE_RE = re.compile(r"(?:TEL|ＴＥＬ|電話番号|電話)[：:]?\s*(0\d{1,4}-\d{1,4}-\d{3,4})")
 UAID_RE = re.compile(r"[?&]uaid=([0-9a-z]+)")
+# 検索結果に混ざる案内枠（「新着求人をまとめてチェック！」など）を社名として拾わないための判定
+NOT_COMPANY_RE = re.compile(r"^東京都|求人.*件|チェック|を見る|[、。！!]$|マッチした")
 
 
 class KyujinboxScraper(BaseScraper):
@@ -79,6 +81,8 @@ class KyujinboxScraper(BaseScraper):
             company_name = lines[1]
             if not company_name or len(company_name) > 60 or "円" in company_name:
                 return None
+            if NOT_COMPANY_RE.search(company_name):
+                return None
 
             address = next((l for l in lines if l.startswith("東京都")), "東京都")
             address = address.split(" / ")[0].strip()
@@ -92,6 +96,8 @@ class KyujinboxScraper(BaseScraper):
                 if m:
                     detail_url = f"{BASE_URL}/jb/{m.group(1)}"
                     break
+            if not detail_url:
+                return None  # 求人詳細へのリンクが無いカードは案内枠
 
             return Lead(
                 company_name=company_name,

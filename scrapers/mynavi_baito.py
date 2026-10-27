@@ -25,6 +25,7 @@ BASE_URL = "https://baito.mynavi.jp"
 
 class MynaviBaitoScraper(BaseScraper):
     site_name = "マイナビバイト"
+    strict_industries = {"建設"}  # ss-17 は工場・倉庫も含むため
 
     async def scrape_industry(self, context: BrowserContext, industry: str) -> list[Lead]:
         leads: list[Lead] = []
