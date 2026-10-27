@@ -1,0 +1,24 @@
+name: スクレイパー診断v3（マイナビ社名・求人BOX広告/電話）
+
+on:
+  push:
+    branches:
+      - claude/scraper-fixes
+    paths:
+      - tools/diagnose_v3.py
+      - .github/workflows/diagnose_v3.yml
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install playwright
+      - run: playwright install chromium --with-deps
+      - name: 診断v3実行
+        run: python tools/diagnose_v3.py
