@@ -1,0 +1,27 @@
+name: 電話番号の後追い補完（9/14〜の週・毎日少しずつ）
+
+on:
+  schedule:
+    - cron: '5 1 * * 0,2-6'   # 毎日10:05 JST（月曜は週次収集と1日の上限を分け合うので休み）
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: 補完実行
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SPREADSHEET_ID: ${{ secrets.GOOGLE_SPREADSHEET_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          KIZUNA_INGEST_TOKEN: ${{ secrets.KIZUNA_INGEST_TOKEN }}
+          BACKFILL_TABS: "2026-W37,2026-W38,2026-W39,2026-W40,2026-W41,2026-W43"
+          BACKFILL_MAX_LOOKUPS: "450"
+        run: python tools/backfill_google.py
