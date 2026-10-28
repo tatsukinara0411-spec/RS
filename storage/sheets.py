@@ -96,12 +96,17 @@ def _get_or_create_sheet(ss: gspread.Spreadsheet, tab_name: str) -> gspread.Work
     return ws
 
 
+def week_tab_name() -> str:
+    """週次タブの名前（例 2026-W43）。KIZUNAの取込待ちの batch 名にも同じものを使う。"""
+    return datetime.now().strftime("%Y-W%W")
+
+
 def write_leads(leads: list[Lead], dry_run: bool = False) -> str:
     if not leads:
         logger.info("書き込むリードがありません")
         return ""
 
-    week_tab = datetime.now().strftime("%Y-W%W")
+    week_tab = week_tab_name()
 
     if dry_run:
         logger.info(f"[DRY RUN] {len(leads)}件をシート '{week_tab}' に書き込む予定")

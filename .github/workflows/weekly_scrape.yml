@@ -47,6 +47,9 @@ jobs:
           GOOGLE_SHARE_EMAIL: ${{ secrets.GOOGLE_SHARE_EMAIL }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           NTA_API_KEY: ${{ secrets.NTA_API_KEY }}
+          KIZUNA_SUPABASE_URL: ${{ secrets.KIZUNA_SUPABASE_URL }}
+          KIZUNA_ANON_KEY: ${{ secrets.KIZUNA_ANON_KEY }}
+          KIZUNA_INGEST_TOKEN: ${{ secrets.KIZUNA_INGEST_TOKEN }}
           PLACES_MAX_LOOKUPS: ${{ vars.PLACES_MAX_LOOKUPS }}
           PLACES_MONTHLY_BUDGET: ${{ vars.PLACES_MONTHLY_BUDGET }}
           PLAYWRIGHT_HEADLESS: "true"

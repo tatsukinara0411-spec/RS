@@ -213,6 +213,7 @@ async def enrich_with_places(leads: list, concurrency: int = 5) -> int:
                 status_counter[dstatus] += 1
                 if phone:
                     lead.phone = phone
+                    lead.phone_source = "google"
                     found_count += 1
                 if addr and not re.search(r"\d", lead.address):
                     lead.address = addr

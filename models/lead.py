@@ -10,6 +10,7 @@ class Lead(BaseModel):
     address: str
     phone: Optional[str] = ""          # 会社の代表番号（Googleマップ優先）
     listing_phone: Optional[str] = ""  # 求人ページに載っていた番号（応募受付用のことが多い）
+    phone_source: str = ""             # phone の出どころ：google（代表番号）／listing（求人ページの番号）
     job_text: str = ""                 # 業種判定用のカード本文（シートには書かない）
     industry: str
     source_site: str

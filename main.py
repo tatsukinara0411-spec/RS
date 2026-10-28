@@ -19,7 +19,8 @@ from scrapers.workin import WorkinScraper
 from scrapers.jmedley import JmedleyScraper
 from scrapers.stanby import StanbyScraper
 from storage.database import init_db, deduplicate, mark_seen_pair
-from storage.sheets import write_leads
+from storage.sheets import write_leads, week_tab_name
+from storage.kizuna import push_to_kizuna
 from models.lead import Lead
 from utils.credentials import load_service_account_info, CredentialsError
 from utils.places import enrich_with_places
@@ -124,6 +125,7 @@ async def run_scrape(dry_run: bool = False):
     for lead in unique_leads:
         if not lead.phone and lead.listing_phone:
             lead.phone = lead.listing_phone
+            lead.phone_source = "listing"
             fallback += 1
     logger.info(f"求人ページの番号で補った件数: {fallback}件")
 
@@ -132,6 +134,10 @@ async def run_scrape(dry_run: bool = False):
 
     # スプレッドシートへ書き込み
     url = write_leads(unique_leads, dry_run=dry_run)
+
+    # KIZUNAの「取込待ち」に送る（設定が無ければ何もしない。失敗しても収集は止めない）
+    if not dry_run:
+        push_to_kizuna(unique_leads, week_tab_name())
 
     # DBに記録(補完前の住所をキーにする)
     if not dry_run:
