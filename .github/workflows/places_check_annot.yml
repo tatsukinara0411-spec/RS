@@ -1,0 +1,35 @@
+name: Places API検証（結果を注記に出す）
+
+on:
+  push:
+    branches:
+      - claude/places-check
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install aiohttp
+      - name: Places検証（8社・API呼び出し約16回）
+        env:
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          python tools/test_places.py > out.txt 2>&1 || true
+          python - <<'PY'
+          t = open("out.txt", encoding="utf-8").read()[:6000]
+          t = t.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
+          print(f"::notice title=PLACES_RESULT::{t}")
+          PY
+      - name: KIZUNA用の鍵が登録済みか（値は出さない）
+        env:
+          A: ${{ secrets.KIZUNA_SUPABASE_URL }}
+          B: ${{ secrets.KIZUNA_ANON_KEY }}
+          C: ${{ secrets.KIZUNA_INGEST_TOKEN }}
+        run: |
+          echo "::notice title=KIZUNA_SECRETS::URL=$([ -n "$A" ] && echo 登録済み || echo 未登録) / ANON=$([ -n "$B" ] && echo 登録済み || echo 未登録) / TOKEN=$([ -n "$C" ] && echo 登録済み || echo 未登録)"
