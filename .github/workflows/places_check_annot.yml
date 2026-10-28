@@ -31,5 +31,8 @@ jobs:
           A: ${{ secrets.KIZUNA_SUPABASE_URL }}
           B: ${{ secrets.KIZUNA_ANON_KEY }}
           C: ${{ secrets.KIZUNA_INGEST_TOKEN }}
+          VA: ${{ vars.KIZUNA_SUPABASE_URL }}
+          VB: ${{ vars.KIZUNA_ANON_KEY }}
+          VC: ${{ vars.KIZUNA_INGEST_TOKEN }}
         run: |
-          echo "::notice title=KIZUNA_SECRETS::URL=$([ -n "$A" ] && echo 登録済み || echo 未登録) / ANON=$([ -n "$B" ] && echo 登録済み || echo 未登録) / TOKEN=$([ -n "$C" ] && echo 登録済み || echo 未登録)"
+          echo "::notice title=KIZUNA_SECRETS::URL=$([ -n "$A" ] && echo 登録済み || echo 未登録) / ANON=$([ -n "$B" ] && echo 登録済み || echo 未登録) / TOKEN=$([ -n "$C" ] && echo 登録済み || echo 未登録) ／ Variables側: URL=$([ -n "$VA" ] && echo あり || echo なし) ANON=$([ -n "$VB" ] && echo あり || echo なし) TOKEN=$([ -n "$VC" ] && echo あり || echo なし)"
