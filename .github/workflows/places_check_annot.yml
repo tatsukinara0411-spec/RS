@@ -36,3 +36,25 @@ jobs:
           VC: ${{ vars.KIZUNA_INGEST_TOKEN }}
         run: |
           echo "::notice title=KIZUNA_SECRETS::URL=$([ -n "$A" ] && echo 登録済み || echo 未登録) / ANON=$([ -n "$B" ] && echo 登録済み || echo 未登録) / TOKEN=$([ -n "$C" ] && echo 登録済み || echo 未登録) ／ Variables側: URL=$([ -n "$VA" ] && echo あり || echo なし) ANON=$([ -n "$VB" ] && echo あり || echo なし) TOKEN=$([ -n "$VC" ] && echo あり || echo なし)"
+      - name: KIZUNAへの接続確認（0件を送って合言葉が通るかだけ見る。データは増えない）
+        env:
+          C: ${{ secrets.KIZUNA_INGEST_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          url = "https://tlebenzxotboyvrfdsod.supabase.co/rest/v1/rpc/scrape_stage_push"
+          key = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+                 "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZWJlbnp4b3Rib3l2cmZkc29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTI4NTUsImV4cCI6MjA5MjM4ODg1NX0."
+                 "nA49xIDB76Ummbh9ZCxlhqaHpyH25JkGwoNENduUf8c")
+          body = json.dumps({"p_token": os.environ.get("C", "").strip(), "p_batch": "2026-W00", "p_rows": []}).encode()
+          req = urllib.request.Request(url, data=body, method="POST",
+                headers={"apikey": key, "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+          try:
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  msg = f"OK（HTTP {r.status}・応答 {r.read().decode()[:50]}）合言葉が通りました"
+          except urllib.error.HTTPError as e:
+              msg = f"NG（HTTP {e.code}）{e.read().decode(errors='replace')[:200]}"
+          except Exception as e:
+              msg = f"NG {e}"
+          print("::notice title=KIZUNA_CONNECT::" + msg)
+          PY
