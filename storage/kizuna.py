@@ -6,10 +6,13 @@ KIZUNA 側の関数 scrape_stage_push(p_token, p_batch, p_rows) を呼ぶ。こ�
 取込待ちからテレマの架電リストへの取込は、KIZUNA の「架電リスト取込」画面で人がボタンを押して行う。
 
 必要な設定（GitHub の Secrets）:
-  KIZUNA_SUPABASE_URL   例 https://xxxx.supabase.co
-  KIZUNA_ANON_KEY       KIZUNA の画面と同じ公開用キー（anon）
-  KIZUNA_INGEST_TOKEN   KIZUNA の scrape_ingest_tokens に登録した合言葉
-いずれかが未設定なら何もしない。送れなくても収集全体は止めない（ログに警告を出す）。
+  KIZUNA_INGEST_TOKEN   KIZUNA の scrape_ingest_tokens に登録した合言葉（秘密。必須）
+  KIZUNA_SUPABASE_URL   省略可（既定値は下の DEFAULT_URL）
+  KIZUNA_ANON_KEY       省略可（既定値は下の DEFAULT_ANON_KEY）
+合言葉が未設定なら何もしない。送れなくても収集全体は止めない（ログに警告を出す）。
+
+URL と anon キーは KIZUNA の画面のソース（https://kizuna-crm.pages.dev/）にも載っている公開用の値なので、
+既定値としてコードに置く（秘密ではない。service_role / secret キーは絶対に置かない）。
 """
 import json
 import logging
@@ -21,6 +24,13 @@ from datetime import timezone, datetime
 logger = logging.getLogger(__name__)
 
 CHUNK = 500
+
+DEFAULT_URL = "https://tlebenzxotboyvrfdsod.supabase.co"
+DEFAULT_ANON_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZWJlbnp4b3Rib3l2cmZkc29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTI4NTUsImV4cCI6MjA5MjM4ODg1NX0."
+    "nA49xIDB76Ummbh9ZCxlhqaHpyH25JkGwoNENduUf8c"
+)
 
 
 def _iso_utc(s: str) -> str:
@@ -54,11 +64,11 @@ def _rows(leads) -> list[dict]:
 
 
 def push_to_kizuna(leads, batch: str) -> int:
-    url = (os.environ.get("KIZUNA_SUPABASE_URL") or "").strip().rstrip("/")
-    key = (os.environ.get("KIZUNA_ANON_KEY") or "").strip()
+    url = ((os.environ.get("KIZUNA_SUPABASE_URL") or "").strip() or DEFAULT_URL).rstrip("/")
+    key = (os.environ.get("KIZUNA_ANON_KEY") or "").strip() or DEFAULT_ANON_KEY
     token = (os.environ.get("KIZUNA_INGEST_TOKEN") or "").strip()
-    if not (url and key and token):
-        logger.info("[KIZUNA] 送信先の設定が無いためスキップ（KIZUNA_SUPABASE_URL / KIZUNA_ANON_KEY / KIZUNA_INGEST_TOKEN）")
+    if not token:
+        logger.info("[KIZUNA] 合言葉（KIZUNA_INGEST_TOKEN）が未設定のためスキップ")
         return 0
     if not leads:
         return 0
