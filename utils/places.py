@@ -7,7 +7,7 @@ GOOGLE_MAPS_API_KEY 環境変数が未設定の場合はすべてスキップ。
   2. Place Details → formatted_phone_number / formatted_address を取得
 
 予算ガード:
-  PLACES_MAX_LOOKUPS       1回の実行で調べる上限（既定 1500件）
+  PLACES_MAX_LOOKUPS       1回の実行で調べる上限（既定 700件。Google側の1日上限を設定していないため、コード側で抑える）
   PLACES_MONTHLY_BUDGET    1か月で調べる上限（既定 5000件）
   いずれも超えると以降はスキップし、実行結果ページに警告を出す。
 
@@ -150,7 +150,7 @@ async def enrich_with_places(leads: list, concurrency: int = 5) -> int:
         logger.info("[Places] GOOGLE_MAPS_API_KEY が未設定のためスキップ")
         return 0
 
-    max_per_run = _env_int("PLACES_MAX_LOOKUPS", 1500)
+    max_per_run = _env_int("PLACES_MAX_LOOKUPS", 700)
     monthly_budget = _env_int("PLACES_MONTHLY_BUDGET", 5000)
 
     used, remaining, pct = budget_status(monthly_budget)
