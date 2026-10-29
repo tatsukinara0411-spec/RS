@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '5 1 * * 0,2-6'   # 毎日10:05 JST（月曜は週次収集と1日の上限を分け合うので休み）
   workflow_dispatch:
+  push:
+    branches:
+      - claude/backfill-google   # このブランチにpushしたときも1回動かす（スケジュールが動かなかった日の手動実行用）
 
 jobs:
   backfill:
